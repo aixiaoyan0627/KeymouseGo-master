@@ -1,0 +1,258 @@
+{
+  "name": "自动买卖操作",
+  "description": "自动买卖操作脚本",
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行自动买卖操作"
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgsG/卖出.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgsG/全卖.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "开始循环点击抬价（卖出），直到变为灰色"
+      }
+    },
+    {
+      "type": "if_else",
+      "params": {
+        "condition": "always_true == 'true'",
+        "steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "抬价循环（卖出） - 需实现检测图片变灰的逻辑"
+            }
+          }
+        ],
+        "else_steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "跳过抬价"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgsG/成交.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgsG/买入.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "点击坐标1-12"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 73,
+        "y": 112,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 184,
+        "y": 113,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 287,
+        "y": 114,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 69,
+        "y": 245,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 180,
+        "y": 234,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 284,
+        "y": 230,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 68,
+        "y": 354,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 192,
+        "y": 355,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 297,
+        "y": 366,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 73,
+        "y": 471,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 175,
+        "y": 488,
+        "button": "left"
+      }
+    },
+    {
+      "type": "click",
+      "params": {
+        "x": 285,
+        "y": 481,
+        "button": "left"
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "开始循环点击抬价（买入），直到变为灰色"
+      }
+    },
+    {
+      "type": "if_else",
+      "params": {
+        "condition": "always_true == 'true'",
+        "steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "抬价循环（买入） - 需实现检测图片变灰的逻辑"
+            }
+          }
+        ],
+        "else_steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "跳过抬价"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgsG/成交.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "自动买卖操作执行完成"
+      }
+    }
+  ]
+}

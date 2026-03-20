@@ -1,0 +1,39 @@
+dog
+person
+cat
+tv
+car
+meatballs
+marinara sauce
+tomato soup
+chicken noodle soup
+french onion soup
+chicken breast
+ribs
+pulled pork
+hamburger
+cavity
+baoxiang
+bujitong
+caofan
+caofan1
+danshui
+haicao
+hanghaishi1
+hanghaishi2
+hanghaishi3
+hanghaishi4
+hanghaishi5
+hanghaishi6
+hongbao
+hongbao2
+huozai1
+huozai2
+jiabanzangluan
+laji
+pofan
+shijieditu
+shuyi
+xiuzhenghangxian
+yanhui
+yuhuo

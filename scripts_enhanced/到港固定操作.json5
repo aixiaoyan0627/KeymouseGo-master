@@ -1,0 +1,149 @@
+{
+  "version": "1.0",
+  "name": "到港固定操作",
+  "description": "进港后的固定操作流程",
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行到港固定操作"
+      }
+    },
+    {
+      "type": "key_press",
+      "params": {
+        "key": "4"
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 15
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 844,
+        "y": 673
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.4
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 844,
+        "y": 673
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 844,
+        "y": 673
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.6
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 844,
+        "y": 673
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 1,
+        "duration_max": 2
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 817,
+        "y": 562
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.5
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 817,
+        "y": 562
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 817,
+        "y": 562
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 0.6
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 817,
+        "y": 562
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 1,
+        "duration_max": 2
+      }
+    },
+    {
+      "type": "key_press",
+      "params": {
+        "key": "1"
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 15
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "到港固定操作完成，准备执行买卖操作"
+      }
+    }
+  ]
+}

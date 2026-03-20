@@ -1,0 +1,73 @@
+{
+  "name": "到港固定操作示例",
+  "description": "到达城市后的固定操作流程",
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行到港固定操作"
+      }
+    },
+    {
+      "type": "key_press",
+      "params": {
+        "key": "4"
+      }
+    },
+    {
+      "type": "wait_for_image",
+      "params": {
+        "image": "imgs/目标图片1.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgs/目标图片1.png",
+        "timeout": 10,
+        "interval": 0.5,
+        "click_count": 1
+      }
+    },
+    {
+      "type": "wait_for_image",
+      "params": {
+        "image": "imgs/新图片.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgs/新图片.png",
+        "timeout": 10,
+        "interval": 0.5,
+        "click_count": 3,
+        "click_interval": 0.2
+      }
+    },
+    {
+      "type": "key_press",
+      "params": {
+        "key": "1"
+      }
+    },
+    {
+      "type": "wait_for_image",
+      "params": {
+        "image": "imgs/下一个目标图片.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "到港固定操作完成，准备执行买卖操作脚本"
+      }
+    }
+  ]
+}

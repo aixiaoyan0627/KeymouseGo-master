@@ -1,0 +1,13 @@
+# Python3.12
+
+pywin32>=306
+pynput>=1.7.6
+pyperclip==1.8.0
+future==0.18.3
+PySide6>=6.6.0
+qt-material==2.11
+loguru==0.6.0
+json5==0.9.10
+opencv-python>=4.5.0
+mss>=9.0.0
+numpy>=1.19.0

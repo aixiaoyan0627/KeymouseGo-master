@@ -1,0 +1,203 @@
+{
+  scripts: [
+    {
+      delay: 369,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.578125,
+        0.6302083333333334,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.580078125,
+        0.6236979166666666,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5830078125,
+        0.6080729166666666,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.587890625,
+        0.5807291666666666,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5927734375,
+        0.5442708333333334,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.595703125,
+        0.4973958333333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.4375,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 25,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.3684895833333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 23,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.2877604166666667,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.21223958333333334,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.15625,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.11979166666666667,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.10286458333333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 24,
+      event_type: "EM",
+      action_type: "mouse move",
+      action: [
+        0.5966796875,
+        0.09895833333333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 128,
+      event_type: "EM",
+      action_type: "mouse left down",
+      action: [
+        0.5966796875,
+        0.09895833333333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 112,
+      event_type: "EM",
+      action_type: "mouse left up",
+      action: [
+        0.5966796875,
+        0.09895833333333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 64,
+      event_type: "EM",
+      action_type: "mouse left down",
+      action: [
+        0.5966796875,
+        0.09895833333333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+    {
+      delay: 80,
+      event_type: "EM",
+      action_type: "mouse left up",
+      action: [
+        0.5966796875,
+        0.09895833333333333,
+        "relative_to_window",
+      ],
+      type: "event",
+    },
+  ],
+  total_duration_ms: 6008,
+}

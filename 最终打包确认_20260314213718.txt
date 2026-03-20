@@ -1,0 +1,113 @@
+========================================
+KeymouseGo 测试版 - 最终打包确认
+========================================
+
+【打包日期】
+2026-03-14
+
+【输出文件】
+KeymouseGoTrial.exe (约 131.0 MB)
+
+【已包含内容】
+✓ 主程序
+✓ 30天试用期许可证系统
+✓ 简化日志（使用 loguru）
+✓ 不显示命令提示符窗口
+
+【资源文件】
+✓ assets - 资源文件夹
+✓ imgsA - 图片资源A
+✓ imgsB - 图片资源B
+✓ imgsC - 图片资源C
+✓ imgsE - 图片资源E
+✓ imgsF - 图片资源F
+✓ imgsG - 图片资源G
+✓ scripts - 脚本文件
+✓ scripts_enhanced - 增强脚本
+✓ system_scripts - 系统脚本
+✓ detection_config.json5 - 检测配置
+✓ config.ini - 主配置
+✓ Mondrian.ico - 图标
+
+【状态机相关模块】
+✓ Util.voyage - 状态机主模块
+✓ Util.voyage.state_machine - 状态机
+✓ Util.voyage.city_strategy - 城市策略
+✓ Util.voyage.enhanced_script - 增强脚本
+✓ Util.voyage.detector - 检测器
+✓ Util.voyage.executor - 执行器
+✓ Util.voyage.action_executor - 动作执行器
+✓ Util.voyage.config - 配置
+✓ Util.voyage.death_detector - 死亡检测器
+✓ Util.voyage.ui_ocean_v3 - 海域 UI
+
+【核心功能模块】
+✓ Util.ImageRecognition - 图像识别（CV2）
+✓ Util.DetectionLoop - 检测循环
+✓ Util.RunScriptClass - 脚本运行
+✓ Util.Parser - 脚本解析
+✓ Event.ScriptEvent - 脚本事件
+✓ Event.WindowsEvents - Windows事件
+✓ Event.UniversalEvents - 通用事件
+✓ Recorder.WindowsRecorder - Windows录制器
+✓ Plugin.Manager - 插件管理器
+
+【许可证模块】
+✓ Util.license_manager - 许可证管理器
+
+【日志模块】
+✓ loguru - 日志库（已验证）
+✓ asyncio - 异步库（loguru 依赖，已验证）
+
+【GUI 模块】
+✓ PySide6 - GUI 框架
+✓ cv2 - OpenCV 图像处理
+
+【已排除内容】
+✗ torch - PyTorch 框架
+✗ torchvision - PyTorch 视觉
+✗ torchaudio - PyTorch 音频
+✗ ultralytics - YOLO 框架
+✗ tensorflow - TensorFlow
+✗ keras - Keras
+✗ tkinter - Tkinter GUI
+✗ matplotlib - 绘图库
+✗ scipy - 科学计算
+✗ pandas - 数据分析
+✗ Util.yolo_recognizer - YOLO 识别器
+✗ Util.ocr_recognizer - OCR 识别器
+✗ Util.UnifiedRecognizer - 统一识别器
+✗ Util.DetectionStateMachine - 检测状态机
+✗ Util.yolo_detector - YOLO 检测器
+
+【功能特点】
+✓ 30 天使用倒计时（首次运行开始计时）
+✓ 使用时计时，不使用时不计时
+✓ 到期自动锁定
+✓ 机器码绑定（防止复制许可证文件）
+✓ 简化日志（只输出到文件，不显示控制台）
+✓ 独立运行（无需安装任何依赖）
+
+【测试状态】
+✓ 打包成功
+✓ 所有资源文件已包含
+✓ 所有必需模块已包含（loguru, asyncio, multiprocessing, concurrent, xml 等）
+✓ loguru 已验证（包含在打包中）
+✓ asyncio 已验证（包含在打包中）
+✓ xml 已验证（包含在打包中，qt_material 依赖）
+✓ 无严重警告信息
+✓ 文件大小：约 131.0 MB
+
+【使用说明】
+1. 将 KeymouseGoTrial.exe 复制给用户
+2. 用户双击运行即可
+3. 首次运行开始 30 天计时
+4. 日志保存在 logs 文件夹中
+
+【注意事项】
+- 不要删除 .license_data 文件
+- 30 天是累计使用时间
+- 只支持 Windows 系统
+- 如有错误提示，请截图联系开发者
+
+========================================

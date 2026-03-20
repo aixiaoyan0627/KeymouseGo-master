@@ -1,0 +1,65 @@
+{
+  capture_window: "大航海时代：传说",
+  match_threshold: 0.7,
+  tab_type: "ocean_v3",
+  ocean_v3: {
+    cities: [
+      {
+        city_index: 1,
+        sea: "西地中海",
+        city: "塞维利亚",
+        script_trade: "0313_0926.json5",
+        next_stop_strategy: "auto",
+      },
+      {
+        city_index: 2,
+        sea: "非洲西岸",
+        city: "卡里比布",
+        script_trade: "0313_1021.json5",
+        next_stop_strategy: "auto",
+      },
+      {
+        city_index: 3,
+        sea: "",
+        city: "",
+        script_trade: null,
+        next_stop_strategy: "specified",
+      },
+      {
+        city_index: 4,
+        sea: "",
+        city: "",
+        script_trade: null,
+        next_stop_strategy: "specified",
+      },
+      {
+        city_index: 5,
+        sea: "",
+        city: "",
+        script_trade: null,
+        next_stop_strategy: "specified",
+      },
+      {
+        city_index: 6,
+        sea: "",
+        city: "",
+        script_trade: null,
+        next_stop_strategy: "specified",
+      },
+      {
+        city_index: 7,
+        sea: "",
+        city: "",
+        script_trade: null,
+        next_stop_strategy: "specified",
+      },
+      {
+        city_index: 8,
+        sea: "",
+        city: "",
+        script_trade: null,
+        next_stop_strategy: "specified",
+      },
+    ],
+  },
+}

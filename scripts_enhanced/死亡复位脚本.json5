@@ -1,0 +1,107 @@
+{
+  "version": "1.0",
+  "name": "死亡复位脚本",
+  "description": "死亡检测后执行复位操作，包括下一站选择",
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行死亡复位脚本"
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 909,
+        "y": 139
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 181,
+        "y": 718
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 876,
+        "y": 691
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "执行指定城市模式，目标海域: ${next_sea}, 目标城市: ${next_city}"
+      }
+    },
+    {
+      "type": "find_and_click_dynamic",
+      "params": {
+        "base_path": "imgsE",
+        "folder_var": "next_sea",
+        "timeout": 5,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "find_and_click_dynamic",
+      "params": {
+        "base_path": "imgsF",
+        "folder_var": "next_sea",
+        "image_var": "next_city",
+        "timeout": 5,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 613,
+        "y": 396
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "死亡复位脚本执行完成"
+      }
+    }
+  ]
+}

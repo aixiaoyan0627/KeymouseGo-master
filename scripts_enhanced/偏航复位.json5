@@ -1,0 +1,84 @@
+{
+  "name": "偏航复位",
+  "description": "偏航后的复位流程：检测继续航行 → 有则点击，无则重新执行下一站选择",
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行偏航复位流程"
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 1.0
+      }
+    },
+    {
+      "type": "wait_for_image",
+      "params": {
+        "image": "imgsG/jixuhangxing.png",
+        "timeout": 3,
+        "interval": 0.5,
+        "set_var": "continue_sailing_found",
+        "value_on_found": "true",
+        "value_on_timeout": "false",
+        "log_on_timeout": false
+      }
+    },
+    {
+      "type": "if_else",
+      "params": {
+        "condition": "continue_sailing_found == 'true'",
+        "steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "检测到继续航行按钮，点击它"
+            }
+          },
+          {
+            "type": "find_and_click",
+            "params": {
+              "image": "imgsG/jixuhangxing.png",
+              "timeout": 5,
+              "interval": 0.5
+            }
+          }
+        ],
+        "else_steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "未检测到继续航行按钮，重新执行下一站选择"
+            }
+          },
+          {
+            "type": "execute_script",
+            "params": {
+              "path": "scripts_enhanced/下一站选择_统一版.json5",
+              "wait": true,
+              "context": {
+                "sell_sea": "${last_sell_sea}",
+                "sell_city": "${last_sell_city}",
+                "city_selection_mode": "${last_city_selection_mode}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 2.0
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "偏航复位完成"
+      }
+    }
+  ]
+}

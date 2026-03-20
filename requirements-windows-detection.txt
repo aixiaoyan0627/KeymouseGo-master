@@ -1,0 +1,13 @@
+# 仅运行「检测模式」(python KeymouseGo.py --detect) 时用此文件安装依赖
+# 不含 pyWinhook（录制/回放/F9 停止需要 pyWinhook，需 Python 3.10/3.11 或自行安装 SWIG 编译）
+
+pywin32>=306
+pyperclip==1.8.0
+future==0.18.3
+PySide6>=6.6.0
+qt-material==2.11
+loguru==0.6.0
+json5==0.9.10
+opencv-python>=4.5.0
+mss>=9.0.0
+numpy>=1.19.0

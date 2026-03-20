@@ -1,0 +1,51 @@
+// 示例增强脚本 - 演示新的脚本格式
+{
+  "version": "1.0",
+  "name": "示例脚本",
+  "description": "演示新脚本格式的功能，包括版本管理、元数据和校验",
+  "meta": {
+    "author": "KeymouseGo Team",
+    "created_date": "2026-03-07",
+    "category": "示例",
+    "tags": ["演示", "新手教程"]
+  },
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行示例脚本"
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 1.0
+      }
+    },
+    {
+      "type": "wait_for_image",
+      "params": {
+        "image": "imgsG/qingke.png",
+        "timeout": 15.0,
+        "interval": 0.5,
+        "log_on_timeout": true
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgsG/qingke.png",
+        "timeout": 15.0,
+        "interval": 0.5,
+        "click_count": 1,
+        "click_interval": 0.2
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "示例脚本执行完成"
+      }
+    }
+  ]
+}

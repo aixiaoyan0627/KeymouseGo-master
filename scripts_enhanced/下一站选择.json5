@@ -1,0 +1,338 @@
+{
+  "version": "1.1",
+  "name": "下一站选择",
+  "description": "根据配置选择下一站城市",
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行下一站选择"
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 909,
+        "y": 139
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 969,
+        "y": 412
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 181,
+        "y": 718
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "mouse_click",
+      "params": {
+        "x": 876,
+        "y": 691
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration_min": 2,
+        "duration_max": 3
+      }
+    },
+    {
+      "type": "if_else",
+      "params": {
+        "condition": "next_stop_strategy == 'specified'",
+        "steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "执行指定城市模式，目标海域: ${next_sea}, 目标城市: ${next_city}"
+            }
+          },
+          {
+            "type": "find_and_click_dynamic",
+            "params": {
+              "base_path": "imgsE",
+              "folder_var": "next_sea",
+              "timeout": 5,
+              "interval": 0.5
+            }
+          },
+          {
+            "type": "wait",
+            "params": {
+              "duration_min": 2,
+              "duration_max": 3
+            }
+          },
+          {
+            "type": "log",
+            "params": {
+              "message": "第一次尝试查找目标城市: ${next_city}"
+            }
+          },
+          {
+            "type": "set_var",
+            "params": {
+              "name": "city_found",
+              "value": "false"
+            }
+          },
+          {
+            "type": "find_and_click_dynamic",
+            "params": {
+              "base_path": "imgsF",
+              "folder_var": "next_sea",
+              "image_var": "next_city",
+              "timeout": 5,
+              "interval": 0.5
+            }
+          },
+          {
+            "type": "if_else",
+            "params": {
+              "condition": "last_step_success == true",
+              "steps": [
+                {
+                  "type": "log",
+                  "params": {
+                    "message": "目标城市第一次查找成功，点击图片"
+                  }
+                },
+                {
+                  "type": "set_var",
+                  "params": {
+                    "name": "city_found",
+                    "value": "true"
+                  }
+                }
+              ],
+              "else_steps": [
+                {
+                  "type": "log",
+                  "params": {
+                    "message": "目标城市第一次查找失败，开始滚动查找"
+                  }
+                },
+                {
+                  "type": "log",
+                  "params": {
+                    "message": "开始第一轮滚动"
+                  }
+                },
+                {
+                  "type": "mouse_scroll",
+                  "params": {
+                    "x": 613,
+                    "y": 396,
+                    "scroll_amount": -3,
+                    "scroll_times": 5
+                  }
+                },
+                {
+                  "type": "wait",
+                  "params": {
+                    "duration": 1.5
+                  }
+                },
+                {
+                  "type": "log",
+                  "params": {
+                    "message": "开始第二轮滚动"
+                  }
+                },
+                {
+                  "type": "mouse_scroll",
+                  "params": {
+                    "x": 613,
+                    "y": 396,
+                    "scroll_amount": -3,
+                    "scroll_times": 5
+                  }
+                },
+                {
+                  "type": "wait",
+                  "params": {
+                    "duration": 1.5
+                  }
+                },
+                {
+                  "type": "log",
+                  "params": {
+                    "message": "开始第三轮滚动"
+                  }
+                },
+                {
+                  "type": "mouse_scroll",
+                  "params": {
+                    "x": 613,
+                    "y": 396,
+                    "scroll_amount": -3,
+                    "scroll_times": 5
+                  }
+                },
+                {
+                  "type": "wait",
+                  "params": {
+                    "duration": 2
+                  }
+                },
+                {
+                  "type": "log",
+                  "params": {
+                    "message": "第二次尝试查找目标城市: ${next_city}"
+                  }
+                },
+                {
+                  "type": "find_and_click_dynamic",
+                  "params": {
+                    "base_path": "imgsF",
+                    "folder_var": "next_sea",
+                    "image_var": "next_city",
+                    "timeout": 5,
+                    "interval": 0.5
+                  }
+                },
+                {
+                  "type": "if_else",
+                  "params": {
+                    "condition": "last_step_success == true",
+                    "steps": [
+                      {
+                        "type": "log",
+                        "params": {
+                          "message": "目标城市第二次查找成功，点击图片"
+                        }
+                      },
+                      {
+                        "type": "set_var",
+                        "params": {
+                          "name": "city_found",
+                          "value": "true"
+                        }
+                      }
+                    ],
+                    "else_steps": [
+                      {
+                        "type": "log",
+                        "params": {
+                          "message": "异常：目标城市 ${next_city} 两次查找均失败，切换到自动选择最高价模式"
+                        }
+                      },
+                      {
+                        "type": "mouse_click",
+                        "params": {
+                          "x": 781,
+                          "y": 157
+                        }
+                      },
+                      {
+                        "type": "set_var",
+                        "params": {
+                          "name": "city_found",
+                          "value": "auto"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "wait",
+            "params": {
+              "duration_min": 2,
+              "duration_max": 3
+            }
+          },
+          {
+            "type": "mouse_click",
+            "params": {
+              "x": 613,
+              "y": 396
+            }
+          }
+        ],
+        "else_steps": [
+          {
+            "type": "log",
+            "params": {
+              "message": "执行自动选择最高价模式，目标海域: ${next_sea}"
+            }
+          },
+          {
+            "type": "find_and_click_dynamic",
+            "params": {
+              "base_path": "imgsE",
+              "folder_var": "next_sea",
+              "timeout": 5,
+              "interval": 0.5
+            }
+          },
+          {
+            "type": "wait",
+            "params": {
+              "duration_min": 2,
+              "duration_max": 3
+            }
+          },
+          {
+            "type": "mouse_click",
+            "params": {
+              "x": 781,
+              "y": 157
+            }
+          },
+          {
+            "type": "wait",
+            "params": {
+              "duration_min": 2,
+              "duration_max": 3
+            }
+          },
+          {
+            "type": "mouse_click",
+            "params": {
+              "x": 613,
+              "y": 396
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "下一站选择完成"
+      }
+    }
+  ]
+}

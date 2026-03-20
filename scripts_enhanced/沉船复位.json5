@@ -1,0 +1,50 @@
+{
+  "name": "沉船复位",
+  "description": "沉船后的复位流程：点击救助 → 重新执行下一站选择",
+  "steps": [
+    {
+      "type": "log",
+      "params": {
+        "message": "开始执行沉船复位流程"
+      }
+    },
+    {
+      "type": "find_and_click",
+      "params": {
+        "image": "imgsG/jiuzhu.png",
+        "timeout": 10,
+        "interval": 0.5
+      }
+    },
+    {
+      "type": "wait",
+      "params": {
+        "duration": 2.0
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "重新执行下一站选择"
+      }
+    },
+    {
+      "type": "execute_script",
+      "params": {
+        "path": "scripts_enhanced/下一站选择_统一版.json5",
+        "wait": true,
+        "context": {
+          "sell_sea": "${last_sell_sea}",
+          "sell_city": "${last_sell_city}",
+          "city_selection_mode": "${last_city_selection_mode}"
+        }
+      }
+    },
+    {
+      "type": "log",
+      "params": {
+        "message": "沉船复位完成"
+      }
+    }
+  ]
+}
