@@ -8,14 +8,14 @@
         city_index: 1,
         sea: "西地中海",
         city: "塞维利亚",
-        script_trade: "0319_1047.json5",
+        script_trade: "0320_1450.json5",
         next_stop_strategy: "auto",
       },
       {
         city_index: 2,
         sea: "加勒比",
         city: "圣地亚哥",
-        script_trade: "0313_0105.json5",
+        script_trade: "0320_140738.json5",
         next_stop_strategy: "auto",
       },
       {

@@ -144,6 +144,14 @@ except ImportError:
     get_input_executor = None
 
 import time
+import threading
+
+# 线程局部存储的 mss 对象（避免频繁创建导致句柄泄漏，同时保证线程安全）
+_thread_local = threading.local()
+def _get_sct():
+    if not hasattr(_thread_local, 'sct'):
+        _thread_local.sct = mss.mss()
+    return _thread_local.sct
 
 # 节流机制：避免频繁输出警告
 _last_warning_time = 0
@@ -361,21 +369,17 @@ def get_window_rect_by_title(title_substr: str, expected_width: Optional[int] = 
         if result[0] is None:
             # 未找到窗口，记录所有可见窗口
             if found_windows:
-                logger.warning(f'未找到匹配 "{title_substr}" 的窗口，找到以下窗口：{[(hwnd, t, f"{w}x{h}") for hwnd, t, w, h in found_windows]}')
-            else:
-                logger.warning(f'未找到匹配 "{title_substr}" 的窗口，请检查窗口标题是否正确')
+                logger.debug(f'未找到匹配 "{title_substr}" 的窗口，找到以下窗口：{[(hwnd, t, f"{w}x{h}") for hwnd, t, w, h in found_windows]}')
         
         return result[0]
     except Exception as e:
         current_time = time.time()
-        # 将 EnumWindows 相关的异常降级为 DEBUG 级别，减少日志噪音
+        # 将 EnumWindows 相关的异常完全忽略，只记录到最细粒度
         if "EnumWindows" in str(e) or "无效的窗口句柄" in str(e):
-            if current_time - _last_warning_time > _warning_interval:
-                logger.debug('get_window_rect_by_title (EnumWindows): {}', e)
-                _last_warning_time = current_time
+            logger.trace('get_window_rect_by_title (EnumWindows): {}', e)
         else:
             if current_time - _last_warning_time > _warning_interval:
-                logger.warning('get_window_rect_by_title failed: {}', e)
+                logger.debug('get_window_rect_by_title failed: {}', e)
                 _last_warning_time = current_time
         return None
 
@@ -386,19 +390,19 @@ def take_screenshot(monitor: Optional[Dict[str, int]] = None, region: Optional[T
     monitor 为 None 且 region 为 None 时使用主屏。
     region: (left, top, width, height) 时只截取该区域，返回的 offset 为 (left, top)，用于将匹配坐标转为屏幕坐标。
     """
-    with mss.mss() as sct:
-        if region is not None:
-            left, top, w, h = region
-            monitor = {'left': left, 'top': top, 'width': w, 'height': h}
-            offset = (left, top)
-        elif monitor is None:
-            monitor = sct.monitors[0]
-            offset = (0, 0)
-        else:
-            offset = (monitor.get('left', 0), monitor.get('top', 0))
-        img = sct.grab(monitor)
-        frame = np.array(img)[:, :, :3]
-        return cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR), offset
+    sct = _get_sct()
+    if region is not None:
+        left, top, w, h = region
+        monitor = {'left': left, 'top': top, 'width': w, 'height': h}
+        offset = (left, top)
+    elif monitor is None:
+        monitor = sct.monitors[0]
+        offset = (0, 0)
+    else:
+        offset = (monitor.get('left', 0), monitor.get('top', 0))
+    img = sct.grab(monitor)
+    frame = np.array(img)[:, :, :3]
+    return cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR), offset
 
 
 def find_image_on_screen(

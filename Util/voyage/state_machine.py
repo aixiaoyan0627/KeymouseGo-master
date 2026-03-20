@@ -299,30 +299,35 @@ class VoyageStateMachine:
         
         :return: 是否继续运行
         """
-        if not self.ctx.running:
-            return False
-        
-        if self.pause_check and self.pause_check():
-            if self.wait_for_resume:
-                if not self.wait_for_resume():
-                    return False
-            # 再次检查停止标志，因为在 wait_for_resume 期间可能被停止
+        try:
             if not self.ctx.running:
                 return False
+            
+            if self.pause_check and self.pause_check():
+                if self.wait_for_resume:
+                    if not self.wait_for_resume():
+                        return False
+                # 再次检查停止标志，因为在 wait_for_resume 期间可能被停止
+                if not self.ctx.running:
+                    return False
+                return True
+            
+            if self.ctx.state == VoyageState.INIT:
+                return self._run_init()
+            elif self.ctx.state == VoyageState.STRATEGY_A:
+                return self._run_strategy_a()
+            elif self.ctx.state == VoyageState.STRATEGY_C:
+                return self._run_strategy_c()
+            elif self.ctx.state == VoyageState.ERROR_CHECK:
+                return self._run_error_check()
+            elif self.ctx.state == VoyageState.STOPPED:
+                return False
+            
             return True
-        
-        if self.ctx.state == VoyageState.INIT:
-            return self._run_init()
-        elif self.ctx.state == VoyageState.STRATEGY_A:
-            return self._run_strategy_a()
-        elif self.ctx.state == VoyageState.STRATEGY_C:
-            return self._run_strategy_c()
-        elif self.ctx.state == VoyageState.ERROR_CHECK:
-            return self._run_error_check()
-        elif self.ctx.state == VoyageState.STOPPED:
-            return False
-        
-        return True
+        except Exception as e:
+            self.log('[状态机] 执行主循环时发生错误: {}'.format(str(e)))
+            logger.exception('[状态机] 主循环异常')
+            return True
     
     def _run_init(self) -> bool:
         """
@@ -335,92 +340,106 @@ class VoyageStateMachine:
         4. 连续1分钟无法触发A或C策略，开启死亡检测
         5. 连续3轮状态检测及死亡检测后仍无法触发，停止航行
         """
-        # 首先检查是否已停止
-        if not self.ctx.running:
-            return False
-        
-        current_time = time.time()
-        
-        # 初始化状态检测开始时间
-        if self.ctx.state_detection_start_time == 0.0:
-            self.ctx.state_detection_start_time = current_time
-            self.log('[状态检测] 开始检测玩家当前状态...')
-        
-        screenshot, capture_offset = self.detector.take_screenshot()
-        if screenshot is None:
-            self.log('[状态检测] 截图失败，等待重试')
+        try:
+            # 首先检查是否已停止
+            if not self.ctx.running:
+                return False
+            
+            current_time = time.time()
+            
+            # 初始化状态检测开始时间
+            if self.ctx.state_detection_start_time == 0.0:
+                self.ctx.state_detection_start_time = current_time
+                self.log('[状态检测] 开始检测玩家当前状态...')
+            
+            screenshot, capture_offset = self.detector.take_screenshot()
+            if screenshot is None:
+                self.log('[状态检测] 截图失败，等待重试')
+                # 可中断的等待
+                for _ in range(10):
+                    time.sleep(0.1)
+                    if not self.ctx.running:
+                        return False
+                return True
+            
+            # 再次检查是否已停止
+            if not self.ctx.running:
+                return False
+            
+            # 检测所有A类状态（A1、A2、A3）
+            a_detected = False
+            if self.a_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a_paths, screenshot, capture_offset, 'default')
+            if not a_detected and self.a1_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a1_paths, screenshot, capture_offset, 'a1')
+            if not a_detected and self.a2_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a2_paths, screenshot, capture_offset, 'a2')
+            if not a_detected and self.a3_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a3_paths, screenshot, capture_offset, 'a3')
+            
+            # 再次检查是否已停止
+            if not self.ctx.running:
+                return False
+            
+            c_detected = self.detector.detect_class_c(
+                self.c_all_paths, 
+                screenshot, 
+                capture_offset,
+                priority_seas=self.c_priority_seas,
+                imgsc_root_path=self.config.imgsc_root_path
+            )
+            
+            if a_detected:
+                self.log('[状态检测] 检测到A状态标识，进入A策略')
+                self.ctx.state = VoyageState.STRATEGY_A
+                self.ctx.state_detection_fail_count = 0
+                self.ctx.death_check_count = 0
+                return True
+            
+            if c_detected:
+                self.log('[状态检测] 检测到C状态标识，进入C策略')
+                self.ctx.state = VoyageState.STRATEGY_C
+                self.ctx.last_c_state_time = current_time
+                self.ctx.state_detection_fail_count = 0
+                self.ctx.death_check_count = 0
+                self._handle_strategy_c_start(c_detected)
+                return True
+            
+            # 未检测到任何状态
+            elapsed = current_time - self.ctx.state_detection_start_time
+            
+            # 检查是否已停止
+            if not self.ctx.running:
+                return False
+            
+            # 检查是否是V3-liuxing模式
+            is_liuxing_mode = self.config.ocean_v3_liuxing_config is not None
+            
+            if elapsed >= self.ctx.state_detection_timeout:
+                if is_liuxing_mode:
+                    # V3-liuxing模式：不执行死亡检测，继续状态检测
+                    self.log('[状态检测] V3-liuxing模式：连续1分钟无法触发A或C策略，继续状态检测（不执行死亡检测）')
+                    # 重置状态检测开始时间，避免频繁进入死亡检测
+                    self.ctx.state_detection_start_time = current_time
+                else:
+                    # 超过1分钟，开启死亡检测
+                    self.log('[状态检测] 连续1分钟无法触发A或C策略，开启死亡检测')
+                    self.ctx.state = VoyageState.ERROR_CHECK
+                    self.ctx.state_detection_fail_count += 1
+                return True
+            
+            # 等待后继续检测
+            self.log('[状态检测] 未检测到A或C状态，继续检测... (已等待{:.0f}秒)'.format(elapsed))
             # 可中断的等待
             for _ in range(10):
                 time.sleep(0.1)
                 if not self.ctx.running:
                     return False
             return True
-        
-        # 再次检查是否已停止
-        if not self.ctx.running:
-            return False
-        
-        # 检测所有A类状态（A1、A2、A3）
-        a_detected = False
-        if self.a_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a_paths, screenshot, capture_offset, 'default')
-        if not a_detected and self.a1_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a1_paths, screenshot, capture_offset, 'a1')
-        if not a_detected and self.a2_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a2_paths, screenshot, capture_offset, 'a2')
-        if not a_detected and self.a3_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a3_paths, screenshot, capture_offset, 'a3')
-        
-        # 再次检查是否已停止
-        if not self.ctx.running:
-            return False
-        
-        c_detected = self.detector.detect_class_c(
-            self.c_all_paths, 
-            screenshot, 
-            capture_offset,
-            priority_seas=self.c_priority_seas,
-            imgsc_root_path=self.config.imgsc_root_path
-        )
-        
-        if a_detected:
-            self.log('[状态检测] 检测到A状态标识，进入A策略')
-            self.ctx.state = VoyageState.STRATEGY_A
-            self.ctx.state_detection_fail_count = 0
-            self.ctx.death_check_count = 0
+        except Exception as e:
+            self.log('[状态检测] 执行状态检测时发生错误: {}'.format(str(e)))
+            logger.exception('[状态检测] 状态检测异常')
             return True
-        
-        if c_detected:
-            self.log('[状态检测] 检测到C状态标识，进入C策略')
-            self.ctx.state = VoyageState.STRATEGY_C
-            self.ctx.last_c_state_time = current_time
-            self.ctx.state_detection_fail_count = 0
-            self.ctx.death_check_count = 0
-            self._handle_strategy_c_start(c_detected)
-            return True
-        
-        # 未检测到任何状态
-        elapsed = current_time - self.ctx.state_detection_start_time
-        
-        # 检查是否已停止
-        if not self.ctx.running:
-            return False
-        
-        if elapsed >= self.ctx.state_detection_timeout:
-            # 超过1分钟，开启死亡检测
-            self.log('[状态检测] 连续1分钟无法触发A或C策略，开启死亡检测')
-            self.ctx.state = VoyageState.ERROR_CHECK
-            self.ctx.state_detection_fail_count += 1
-            return True
-        
-        # 等待后继续检测
-        self.log('[状态检测] 未检测到A或C状态，继续检测... (已等待{:.0f}秒)'.format(elapsed))
-        # 可中断的等待
-        for _ in range(10):
-            time.sleep(0.1)
-            if not self.ctx.running:
-                return False
-        return True
     
     def _wait_for_a_state(self, timeout: float = 30.0) -> bool:
         """
@@ -475,6 +494,77 @@ class VoyageStateMachine:
         
         return False
     
+    def _wait_for_a_state_or_city_change(self, timeout: float = 30.0) -> Tuple[bool, Optional[str], Optional[str]]:
+        """
+        等待A状态标识出现或城市变更为配置中的另一个城市
+        
+        :param timeout: 超时时间（秒）
+        :return: (是否在超时前检测到A状态或城市变更, 检测到的城市名, 检测到的海域名)
+        """
+        start_time = time.time()
+        last_log_time = 0.0
+        while time.time() - start_time < timeout:
+            # 检查是否已停止（优先检查，确保快速响应）
+            if not self.ctx.running:
+                self.log('[状态机] 等待A状态标识或城市变更时检测到停止信号')
+                return False, None, None
+            
+            screenshot, capture_offset = self.detector.take_screenshot()
+            if screenshot is None:
+                time.sleep(0.1)
+                # 再次检查停止标志
+                if not self.ctx.running:
+                    self.log('[状态机] 等待A状态标识或城市变更时检测到停止信号')
+                    return False, None, None
+                continue
+            
+            # 1. 检测A状态
+            a_detected = False
+            if self.a_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a_paths, screenshot, capture_offset, 'default')
+            if not a_detected and self.a1_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a1_paths, screenshot, capture_offset, 'a1')
+            if not a_detected and self.a2_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a2_paths, screenshot, capture_offset, 'a2')
+            if not a_detected and self.a3_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a3_paths, screenshot, capture_offset, 'a3')
+            
+            if a_detected:
+                return True, None, None
+            
+            # 2. 检测城市是否变更为配置中的另一个城市
+            c_detected = self.detector.detect_class_c(
+                self.c_all_paths, 
+                screenshot, 
+                capture_offset,
+                priority_seas=self.c_priority_seas,
+                imgsc_root_path=self.config.imgsc_root_path
+            )
+            
+            if c_detected:
+                sea_name = get_sea_name_from_path(c_detected, self.config.imgsc_root_path)
+                city_name = os.path.splitext(os.path.basename(c_detected))[0]
+                
+                # 检查是否是配置中的城市
+                target_city_cfg = self._find_matching_city_config(sea_name, city_name)
+                if target_city_cfg:
+                    return True, city_name, sea_name
+            
+            elapsed = time.time() - start_time
+            # 每3秒打印一次日志
+            if elapsed - last_log_time >= 3.0:
+                self.log('[状态机] 等待A状态标识或城市变更... ({:.0f}/{:.0f}秒)'.format(elapsed, timeout))
+                last_log_time = elapsed
+            
+            # 更短的等待时间，更快响应停止信号
+            for _ in range(5):
+                time.sleep(0.1)
+                if not self.ctx.running:
+                    self.log('[状态机] 等待A状态标识或城市变更时检测到停止信号')
+                    return False, None, None
+        
+        return False, None, None
+    
     def _run_strategy_a(self) -> bool:
         """
         A策略（航行中）
@@ -484,12 +574,50 @@ class VoyageStateMachine:
         2. 如A状态标识存在，持续监测点击imgsB类图标
         3. 连续3次未检测到A状态标识，跳回状态检测
         """
-        # 检查是否已停止
-        if not self.ctx.running:
-            return False
-        
-        screenshot, capture_offset = self.detector.take_screenshot()
-        if screenshot is None:
+        try:
+            # 检查是否已停止
+            if not self.ctx.running:
+                return False
+            
+            screenshot, capture_offset = self.detector.take_screenshot()
+            if screenshot is None:
+                # 可中断的等待
+                wait_time = random.uniform(self.min_interval, self.max_interval)
+                start_wait = time.time()
+                while time.time() - start_wait < wait_time:
+                    time.sleep(0.1)
+                    if not self.ctx.running:
+                        return False
+                return True
+            
+            # 检测所有A类状态（A1、A2、A3）
+            a_detected = False
+            if self.a_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a_paths, screenshot, capture_offset, 'default')
+            if not a_detected and self.a1_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a1_paths, screenshot, capture_offset, 'a1')
+            if not a_detected and self.a2_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a2_paths, screenshot, capture_offset, 'a2')
+            if not a_detected and self.a3_paths:
+                a_detected = a_detected or self.detector.detect_class_a(self.a3_paths, screenshot, capture_offset, 'a3')
+            
+            if a_detected:
+                # A状态标识存在，重置计数器，监测点击B类图片
+                self.ctx.a_miss_count = 0
+                self._handle_b_class_detection(screenshot, capture_offset)
+            else:
+                # A状态标识消失，计数+1
+                self.ctx.a_miss_count += 1
+                self.log('[A策略] A状态标识消失，计数: {}/3'.format(self.ctx.a_miss_count))
+                
+                if self.ctx.a_miss_count >= 3:
+                    # 连续3次未检测到A状态标识，跳回状态检测
+                    self.log('[A策略] 连续3次未检测到A状态标识，跳回状态检测')
+                    self.ctx.state = VoyageState.INIT
+                    self.ctx.state_detection_start_time = 0.0
+                    self.ctx.a_miss_count = 0
+                    return True
+            
             # 可中断的等待
             wait_time = random.uniform(self.min_interval, self.max_interval)
             start_wait = time.time()
@@ -498,43 +626,10 @@ class VoyageStateMachine:
                 if not self.ctx.running:
                     return False
             return True
-        
-        # 检测所有A类状态（A1、A2、A3）
-        a_detected = False
-        if self.a_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a_paths, screenshot, capture_offset, 'default')
-        if not a_detected and self.a1_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a1_paths, screenshot, capture_offset, 'a1')
-        if not a_detected and self.a2_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a2_paths, screenshot, capture_offset, 'a2')
-        if not a_detected and self.a3_paths:
-            a_detected = a_detected or self.detector.detect_class_a(self.a3_paths, screenshot, capture_offset, 'a3')
-        
-        if a_detected:
-            # A状态标识存在，重置计数器，监测点击B类图片
-            self.ctx.a_miss_count = 0
-            self._handle_b_class_detection(screenshot, capture_offset)
-        else:
-            # A状态标识消失，计数+1
-            self.ctx.a_miss_count += 1
-            self.log('[A策略] A状态标识消失，计数: {}/3'.format(self.ctx.a_miss_count))
-            
-            if self.ctx.a_miss_count >= 3:
-                # 连续3次未检测到A状态标识，跳回状态检测
-                self.log('[A策略] 连续3次未检测到A状态标识，跳回状态检测')
-                self.ctx.state = VoyageState.INIT
-                self.ctx.state_detection_start_time = 0.0
-                self.ctx.a_miss_count = 0
-                return True
-        
-        # 可中断的等待
-        wait_time = random.uniform(self.min_interval, self.max_interval)
-        start_wait = time.time()
-        while time.time() - start_wait < wait_time:
-            time.sleep(0.1)
-            if not self.ctx.running:
-                return False
-        return True
+        except Exception as e:
+            self.log('[A策略] 执行A策略时发生错误: {}'.format(str(e)))
+            logger.exception('[A策略] 执行异常')
+            return True
     
     def _handle_b_class_detection(self, screenshot, capture_offset):
         """处理B类图片检测"""
@@ -554,34 +649,38 @@ class VoyageStateMachine:
     
     def _handle_delay_image(self, result, base: str):
         """处理delay类图片：在检测区域内点击"""
-        detected_x, detected_y = result.position
-        
-        # 获取检测区域边界，确保点击在区域内
-        region = self.config.region_b_delay
-        if region:
-            left, top, width, height = region
-            right = left + width
-            bottom = top + height
+        try:
+            detected_x, detected_y = result.position
             
-            self.log('[A策略] delay类"{}": 检测位置({}, {}), 区域边界[{}, {}, {}, {}]'.format(
-                base, detected_x, detected_y, left, top, right, bottom))
+            # 获取检测区域边界，确保点击在区域内
+            region = self.config.region_b_delay
+            if region:
+                left, top, width, height = region
+                right = left + width
+                bottom = top + height
+                
+                self.log('[A策略] delay类"{}": 检测位置({}, {}), 区域边界[{}, {}, {}, {}]'.format(
+                    base, detected_x, detected_y, left, top, right, bottom))
+                
+                # 检查检测位置是否在区域内
+                if not (left <= detected_x <= right and top <= detected_y <= bottom):
+                    self.log('[A策略] 警告：检测位置超出区域边界！')
+                
+                # 确保点击位置在检测区域内
+                click_x = max(left, min(detected_x, right))
+                click_y = max(top, min(detected_y, bottom))
+            else:
+                click_x, click_y = detected_x, detected_y
+                self.log('[A策略] delay类"{}": 检测位置({}, {}), 无区域限制'.format(
+                    base, detected_x, detected_y))
             
-            # 检查检测位置是否在区域内
-            if not (left <= detected_x <= right and top <= detected_y <= bottom):
-                self.log('[A策略] 警告：检测位置超出区域边界！')
-            
-            # 确保点击位置在检测区域内
-            click_x = max(left, min(detected_x, right))
-            click_y = max(top, min(detected_y, bottom))
-        else:
-            click_x, click_y = detected_x, detected_y
-            self.log('[A策略] delay类"{}": 检测位置({}, {}), 无区域限制'.format(
-                base, detected_x, detected_y))
-        
-        click_delay = random.uniform(0.2, 0.6)
-        time.sleep(click_delay)
-        clicked = self.detector.click_at(click_x, click_y)
-        self.log('[A策略] 点击位置({}, {}), 结果: {}'.format(click_x, click_y, clicked))
+            click_delay = random.uniform(0.2, 0.6)
+            time.sleep(click_delay)
+            clicked = self.detector.click_at(click_x, click_y)
+            self.log('[A策略] 点击位置({}, {}), 结果: {}'.format(click_x, click_y, clicked))
+        except Exception as e:
+            self.log('[A策略] 处理delay图片时发生错误: {}'.format(str(e)))
+            logger.exception('[A策略] 处理delay图片异常')
     
     def _handle_strategy_c_start(self, matched_c_path: str):
         """处理C策略开始"""
@@ -602,115 +701,174 @@ class VoyageStateMachine:
         3. 如城市不匹配但海域匹配，执行固定操作流程
         4. 如城市和海域都不匹配，自动停止航行
         """
-        # 检查是否已停止
-        if not self.ctx.running:
-            return False
-        
-        if self.ctx.c_city_not_matched:
-            self.log('[C策略] 城市不匹配，进入状态判定')
-            self.ctx.state = VoyageState.INIT
-            return True
-        
-        screenshot, capture_offset = self.detector.take_screenshot()
-        if screenshot is None:
-            # 可中断的等待
-            for _ in range(10):
-                time.sleep(0.1)
-                if not self.ctx.running:
-                    return False
-            return True
-        
-        c_detected = self.detector.detect_class_c(
-            self.c_all_paths, 
-            screenshot, 
-            capture_offset,
-            priority_seas=self.c_priority_seas,
-            imgsc_root_path=self.config.imgsc_root_path
-        )
-        
-        if not c_detected:
-            self.log('[C策略] 未检测到城市标识，进入状态判定')
-            self.ctx.state = VoyageState.INIT
-            return True
-        
-        sea_name = get_sea_name_from_path(c_detected, self.config.imgsc_root_path)
-        city_name = os.path.splitext(os.path.basename(c_detected))[0]
-        
-        self.log('[C策略] 检测到城市: 「{}」，海域: 「{}」'.format(city_name, sea_name))
-        
-        # 打印配置中的城市列表
-        if self.config.ocean_v3_config:
-            self.log('[C策略] 配置中的城市列表:')
-            for city_cfg in self.config.ocean_v3_config.cities:
-                self.log('[C策略]   - sea={}, city={}'.format(city_cfg.sea, city_cfg.city))
-        
-        # 1. 检查城市是否匹配配置
-        target_city_cfg = self._find_matching_city_config(sea_name, city_name)
-        self.log('[C策略] 城市匹配结果: {}'.format(target_city_cfg))
-        
-        if target_city_cfg:
-            # 保存当前城市配置为上一个城市配置（用于死亡检测后的下一站选择）
-            self.ctx.previous_city_config = target_city_cfg
-            self.log('[C策略] 城市匹配成功: 「{}」'.format(city_name))
-            result, next_sea = self.city_strategy.handle_strategy_c_start(sea_name, city_name)
+        try:
+            # 检查是否已停止
+            if not self.ctx.running:
+                return False
             
-            if result:
-                if next_sea:
-                    self.ctx.next_target_sea = next_sea
-                    self.log('[状态机] 设置下一个目标海域: 「{}」'.format(next_sea))
+            if self.ctx.c_city_not_matched:
+                self.log('[C策略] 城市不匹配，进入状态判定')
+                self.ctx.state = VoyageState.INIT
+                return True
+            
+            screenshot, capture_offset = self.detector.take_screenshot()
+            if screenshot is None:
+                # 可中断的等待
+                for _ in range(10):
+                    time.sleep(0.1)
+                    if not self.ctx.running:
+                        return False
+                return True
+            
+            c_detected = self.detector.detect_class_c(
+                self.c_all_paths, 
+                screenshot, 
+                capture_offset,
+                priority_seas=self.c_priority_seas,
+                imgsc_root_path=self.config.imgsc_root_path
+            )
+            
+            if not c_detected:
+                self.log('[C策略] 未检测到城市标识，进入状态判定')
+                self.ctx.state = VoyageState.INIT
+                return True
+            
+            sea_name = get_sea_name_from_path(c_detected, self.config.imgsc_root_path)
+            city_name = os.path.splitext(os.path.basename(c_detected))[0]
+            
+            self.log('[C策略] 检测到城市: 「{}」，海域: 「{}」'.format(city_name, sea_name))
+            
+            # 打印配置中的城市列表
+            if self.config.ocean_v3_config:
+                self.log('[C策略] 配置中的城市列表:')
+                for city_cfg in self.config.ocean_v3_config.cities:
+                    self.log('[C策略]   - sea={}, city={}'.format(city_cfg.sea, city_cfg.city))
+            
+            # 1. 检查城市是否匹配配置
+            target_city_cfg = self._find_matching_city_config(sea_name, city_name)
+            self.log('[C策略] 城市匹配结果: {}'.format(target_city_cfg))
+            
+            if target_city_cfg:
+                # 保存当前城市配置为上一个城市配置（用于死亡检测后的下一站选择）
+                self.ctx.previous_city_config = target_city_cfg
+                self.log('[C策略] 城市匹配成功: 「{}」'.format(city_name))
+                result, next_sea = self.city_strategy.handle_strategy_c_start(sea_name, city_name)
                 
-                self.log('[状态机] 从C策略跳转至A策略，等待A状态标识出现（最长30秒）...')
-                wait_result = self._wait_for_a_state(30)
-                if not self.ctx.running:
-                    return False
-                if wait_result:
-                    self.ctx.state = VoyageState.STRATEGY_A
-                    self.ctx.last_c_state_time = time.time()
-                    self.log('[状态机] 检测到A状态，进入A策略')
+                if result:
+                    if next_sea:
+                        self.ctx.next_target_sea = next_sea
+                        self.log('[状态机] 设置下一个目标海域: 「{}」'.format(next_sea))
+                    
+                    # 检查是否是V3-liuxing模式
+                    is_liuxing_mode = self.config.ocean_v3_liuxing_config is not None
+                    
+                    if is_liuxing_mode:
+                        self.log('[状态机] 从C策略跳转，等待A状态标识出现或城市变更（最长30秒）...')
+                        wait_result, detected_city, detected_sea = self._wait_for_a_state_or_city_change(30)
+                        if not self.ctx.running:
+                            return False
+                        if wait_result:
+                            if detected_city and detected_sea:
+                                self.log('[状态机] 检测到城市变更为: 「{}」海域「{}」，直接进入C策略'.format(detected_sea, detected_city))
+                                # 保存当前城市配置为上一个城市配置（用于死亡检测后的下一站选择）
+                                new_target_city_cfg = self._find_matching_city_config(detected_sea, detected_city)
+                                if new_target_city_cfg:
+                                    self.ctx.previous_city_config = new_target_city_cfg
+                                self.ctx.state = VoyageState.STRATEGY_C
+                                self.ctx.last_c_state_time = time.time()
+                            else:
+                                self.ctx.state = VoyageState.STRATEGY_A
+                                self.ctx.last_c_state_time = time.time()
+                                self.log('[状态机] 检测到A状态，进入A策略')
+                        else:
+                            self.log('[状态机] 等待超时，进入状态检测')
+                            self.ctx.state = VoyageState.INIT
+                            self.ctx.state_detection_start_time = 0.0
+                    else:
+                        # 远洋V3模式使用原来的逻辑
+                        self.log('[状态机] 从C策略跳转至A策略，等待A状态标识出现（最长30秒）...')
+                        wait_result = self._wait_for_a_state(30)
+                        if not self.ctx.running:
+                            return False
+                        if wait_result:
+                            self.ctx.state = VoyageState.STRATEGY_A
+                            self.ctx.last_c_state_time = time.time()
+                            self.log('[状态机] 检测到A状态，进入A策略')
+                        else:
+                            self.log('[状态机] 等待超时，进入状态检测')
+                            self.ctx.state = VoyageState.INIT
+                            self.ctx.state_detection_start_time = 0.0
+                    return True
                 else:
-                    self.log('[状态机] 等待超时，进入状态检测')
+                    self.log('[C策略] 策略段执行失败，进入状态判定')
                     self.ctx.state = VoyageState.INIT
-                    self.ctx.state_detection_start_time = 0.0
-                return True
-            else:
-                self.log('[C策略] 策略段执行失败，进入状态判定')
-                self.ctx.state = VoyageState.INIT
-                return True
-        
-        # 2. 检查海域是否匹配配置（城市不匹配）
-        sea_matched_cfg = self._find_matching_sea_config(sea_name)
-        
-        if sea_matched_cfg:
-            # 保存海域匹配的配置为上一个城市配置（用于死亡检测后的下一站选择）
-            self.ctx.previous_city_config = sea_matched_cfg
-            self.log('[C策略] 城市不匹配但海域匹配: 「{}」，执行固定操作流程'.format(sea_name))
-            result = self.city_strategy.handle_strategy_c_sea_matched(sea_name, sea_matched_cfg)
+                    return True
             
-            if result:
-                self.log('[状态机] 从C策略跳转至A策略，等待A状态标识出现（最长30秒）...')
-                wait_result = self._wait_for_a_state(30)
-                if not self.ctx.running:
-                    return False
-                if wait_result:
-                    self.ctx.state = VoyageState.STRATEGY_A
-                    self.ctx.last_c_state_time = time.time()
-                    self.log('[状态机] 检测到A状态，进入A策略')
+            # 2. 检查海域是否匹配配置（城市不匹配）
+            sea_matched_cfg = self._find_matching_sea_config(sea_name)
+            
+            if sea_matched_cfg:
+                # 保存海域匹配的配置为上一个城市配置（用于死亡检测后的下一站选择）
+                self.ctx.previous_city_config = sea_matched_cfg
+                self.log('[C策略] 城市不匹配但海域匹配: 「{}」，执行固定操作流程'.format(sea_name))
+                result = self.city_strategy.handle_strategy_c_sea_matched(sea_name, sea_matched_cfg)
+                
+                if result:
+                    # 检查是否是V3-liuxing模式
+                    is_liuxing_mode = self.config.ocean_v3_liuxing_config is not None
+                    
+                    if is_liuxing_mode:
+                        self.log('[状态机] 从C策略跳转，等待A状态标识出现或城市变更（最长30秒）...')
+                        wait_result, detected_city, detected_sea = self._wait_for_a_state_or_city_change(30)
+                        if not self.ctx.running:
+                            return False
+                        if wait_result:
+                            if detected_city and detected_sea:
+                                self.log('[状态机] 检测到城市变更为: 「{}」海域「{}」，直接进入C策略'.format(detected_sea, detected_city))
+                                # 保存当前城市配置为上一个城市配置（用于死亡检测后的下一站选择）
+                                new_target_city_cfg = self._find_matching_city_config(detected_sea, detected_city)
+                                if new_target_city_cfg:
+                                    self.ctx.previous_city_config = new_target_city_cfg
+                                self.ctx.state = VoyageState.STRATEGY_C
+                                self.ctx.last_c_state_time = time.time()
+                            else:
+                                self.ctx.state = VoyageState.STRATEGY_A
+                                self.ctx.last_c_state_time = time.time()
+                                self.log('[状态机] 检测到A状态，进入A策略')
+                        else:
+                            self.log('[状态机] 等待超时，进入状态检测')
+                            self.ctx.state = VoyageState.INIT
+                            self.ctx.state_detection_start_time = 0.0
+                    else:
+                        # 远洋V3模式使用原来的逻辑
+                        self.log('[状态机] 从C策略跳转至A策略，等待A状态标识出现（最长30秒）...')
+                        wait_result = self._wait_for_a_state(30)
+                        if not self.ctx.running:
+                            return False
+                        if wait_result:
+                            self.ctx.state = VoyageState.STRATEGY_A
+                            self.ctx.last_c_state_time = time.time()
+                            self.log('[状态机] 检测到A状态，进入A策略')
+                        else:
+                            self.log('[状态机] 等待超时，进入状态检测')
+                            self.ctx.state = VoyageState.INIT
+                            self.ctx.state_detection_start_time = 0.0
+                    return True
                 else:
-                    self.log('[状态机] 等待超时，进入状态检测')
+                    self.log('[C策略] 固定操作流程执行失败，进入状态判定')
                     self.ctx.state = VoyageState.INIT
-                    self.ctx.state_detection_start_time = 0.0
-                return True
-            else:
-                self.log('[C策略] 固定操作流程执行失败，进入状态判定')
-                self.ctx.state = VoyageState.INIT
-                return True
-        
-        # 3. 城市和海域都不匹配，自动停止航行
-        self.log('[C策略] 城市和海域都不匹配配置，自动停止航行')
-        self.log('[C策略] 当前位置: 海域「{}」，城市「{}」'.format(sea_name, city_name))
-        self.ctx.state = VoyageState.STOPPED
-        self.ctx.running = False
-        return False
+                    return True
+            
+            # 3. 城市和海域都不匹配，自动停止航行
+            self.log('[C策略] 城市和海域都不匹配配置，自动停止航行')
+            self.log('[C策略] 当前位置: 海域「{}」，城市「{}」'.format(sea_name, city_name))
+            self.ctx.state = VoyageState.STOPPED
+            self.ctx.running = False
+            return False
+        except Exception as e:
+            self.log('[C策略] 执行C策略时发生错误: {}'.format(str(e)))
+            logger.exception('[C策略] 执行异常')
+            return True
     
     def _find_matching_sea_config(self, sea_name: str) -> Optional[Any]:
         """查找匹配的海域配置（返回该海域的第一个配置）"""
@@ -740,6 +898,8 @@ class VoyageStateMachine:
         """
         死亡检测
         
+        V3-liuxing模式：直接跳回状态检测，不执行死亡检测
+        远洋V3模式：执行死亡检测流程
         流程：
         1. 等待1秒
         2. 执行一轮"画面复位操作"
@@ -749,6 +909,18 @@ class VoyageStateMachine:
         6. 不存在则直接跳转状态检测
         7. 连续3轮状态检测及死亡检测后仍无法触发，停止航行
         """
+        # 检查是否是V3-liuxing模式
+        is_liuxing_mode = self.config.ocean_v3_liuxing_config is not None
+        
+        if is_liuxing_mode:
+            # V3-liuxing模式：直接跳回状态检测，不执行死亡检测
+            self.log('[死亡检测] V3-liuxing模式：不执行死亡检测，跳转状态检测')
+            self.ctx.state = VoyageState.INIT
+            self.ctx.state_detection_start_time = 0.0
+            self.ctx.death_check_count = 0
+            return True
+        
+        # 远洋V3模式：继续执行原来的死亡检测流程
         self.log('[死亡检测] 开始执行死亡检测流程 (第{}次)'.format(self.ctx.death_check_count + 1))
         
         # 检查是否已停止

@@ -285,27 +285,41 @@ class CityStrategyExecutor:
         if self._stopped:
             return
         
-        # 流行板块：执行买卖操作完成后，等待15秒，然后直接跳回状态检测阶段
-        if is_liuxing_mode:
-            self.log('[C策略] 流行板块：买卖操作完成，等待15秒后跳回状态检测')
+        # 检查下一站策略
+        next_stop_strategy = getattr(city_cfg, 'next_stop_strategy', 'specified')
+        
+        if next_stop_strategy == 'none':
+            # 无状态：等待15秒，直接跳回状态检测
+            self.log('[C策略] 下一站策略为\"无\"，等待15秒后跳回状态检测')
             if not self._sleep_with_check(15):
                 self.log('[C策略] 等待被中断')
                 return
             self.log('[C策略] 等待完成，跳回状态检测阶段')
             return
-        
-        # 非流行板块（远洋V3）：继续执行原来的流程
-        # 添加3秒间隔（可中断）
-        if not self._sleep_with_check(3):
-            self.log('[C策略] 等待被中断')
-            return
-        
-        if self._stopped:
-            return
-        
-        self.log('[C策略] 执行下一站选择')
-        # 增强脚本：使用 enhanced_script_executor 执行（同步）
-        self._execute_next_stop_script(city_cfg)
+        else:
+            # 指定城市状态：继续执行原来的流程
+            # 非流行板块（远洋V3）：先执行到港固定操作，再等待3秒
+            # 流行板块：直接等待3秒（不执行到港固定操作）
+            if not is_liuxing_mode:
+                # 远洋V3：添加3秒间隔（可中断）
+                if not self._sleep_with_check(3):
+                    self.log('[C策略] 等待被中断')
+                    return
+                
+                if self._stopped:
+                    return
+                
+                self.log('[C策略] 执行下一站选择')
+                # 增强脚本：使用 enhanced_script_executor 执行（同步）
+                self._execute_next_stop_script(city_cfg)
+            else:
+                # 流行板块：等待15秒后跳回状态检测
+                self.log('[C策略] 流行板块：买卖操作完成，等待15秒后跳回状态检测')
+                if not self._sleep_with_check(15):
+                    self.log('[C策略] 等待被中断')
+                    return
+                self.log('[C策略] 等待完成，跳回状态检测阶段')
+                return
     
     def _execute_next_stop_script(self, city_cfg: Any):
         """执行下一站选择脚本"""
@@ -359,18 +373,25 @@ class CityStrategyExecutor:
         """
         处理C策略海域匹配的情况（城市不匹配但海域匹配）
         
-        执行固定操作流程：入港固定操作 → 买卖操作固定版 → 下一站选择-指定城市
-        流行板块不执行到港固定操作
+        V3-liuxing模式：直接停止运行
+        远洋V3模式：执行固定操作流程：入港固定操作 → 买卖操作固定版 → 下一站选择-指定城市
         
         :param sea_name: 海域名称
         :param sea_matched_cfg: 匹配的海域配置
         :return: 是否执行成功
         """
-        self.log('[C策略] 海域「{}」匹配配置，执行固定操作流程'.format(sea_name))
+        self.log('[C策略] 海域「{}」匹配配置'.format(sea_name))
         
-        # 检查是否是流行板块（流行板块不执行到港固定操作）
+        # 检查是否是流行板块（V3-liuxing模式下直接停止）
         is_liuxing_mode = self.config.ocean_v3_liuxing_config is not None
         
+        if is_liuxing_mode:
+            # V3-liuxing模式：城市不匹配但海域匹配，直接停止运行
+            self.log('[C策略] V3-liuxing模式：城市不匹配但海域匹配，停止航行')
+            self._stopped = True
+            return False
+        
+        # 远洋V3模式：继续执行原来的流程
         # 获取上一个策略段配置
         prev_city_cfg = self._get_previous_city_config(sea_matched_cfg)
         
@@ -380,12 +401,11 @@ class CityStrategyExecutor:
         
         self.log('[C策略] 使用上一个策略段配置: sea={}, city={}'.format(prev_city_cfg.sea, prev_city_cfg.city))
         
-        if not is_liuxing_mode:
-            # 1. 执行入港固定操作
-            self.log('[C策略] 执行入港固定操作')
-            if not self._execute_enhanced_script('到港固定操作'):
-                self.log('[C策略] 入港固定操作执行失败')
-                return False
+        # 1. 执行入港固定操作
+        self.log('[C策略] 执行入港固定操作')
+        if not self._execute_enhanced_script('到港固定操作'):
+            self.log('[C策略] 入港固定操作执行失败')
+            return False
         
         # 2. 执行买卖操作固定版
         self.log('[C策略] 执行买卖操作固定版')

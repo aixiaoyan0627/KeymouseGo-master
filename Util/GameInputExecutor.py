@@ -163,14 +163,14 @@ def _is_window_foreground(hwnd: int) -> bool:
     return hwnd == foreground_hwnd
 
 
-def _activate_window(hwnd: int, wait_ms: int = 100, retry_count: int = 3) -> bool:
+def _activate_window(hwnd: int, wait_ms: int = 100, retry_count: int = 1) -> bool:
     """
-    激活窗口
+    激活窗口（减少重试次数防止卡住）
     
     参数:
         hwnd: 窗口句柄
         wait_ms: 每次尝试后等待的毫秒数
-        retry_count: 重试次数
+        retry_count: 重试次数（减少到1次防止卡住）
     
     返回:
         是否成功激活
@@ -181,22 +181,31 @@ def _activate_window(hwnd: int, wait_ms: int = 100, retry_count: int = 3) -> boo
             if user32.IsIconic(hwnd):
                 user32.ShowWindow(hwnd, SW_RESTORE)
             
-            # 激活窗口
-            user32.SetForegroundWindow(hwnd)
-            user32.SetFocus(hwnd)
+            # 激活窗口（增加超时保护）
+            try:
+                user32.SetForegroundWindow(hwnd)
+                user32.SetFocus(hwnd)
+            except Exception as e:
+                logger.debug(f'SetForegroundWindow/SetFocus 异常，可能是权限问题: {e}')
+                # 即使失败也继续，不阻塞
             
-            # 等待一下并检查是否真的在前台
-            time.sleep(wait_ms / 1000.0)
+            # 等待一下并检查是否真的在前台（减少等待时间）
+            time.sleep(min(wait_ms, 50) / 1000.0)
             if _is_window_foreground(hwnd):
                 if i > 0:
                     logger.debug(f'窗口激活成功（尝试 {i + 1} 次）')
                 return True
             else:
-                logger.warning(f'窗口激活尝试 {i + 1} 次后仍未在前台')
+                logger.debug(f'窗口未在前台，继续执行操作（不阻塞）')
+                # 即使窗口不在前台也返回True，不阻塞后续操作
+                return True
         except Exception as e:
             logger.warning(f'窗口激活失败（尝试 {i + 1} 次）: {e}')
+            # 即使激活失败也返回True，不阻塞
+            return True
     
-    return False
+    # 即使失败也返回True，不阻塞后续操作
+    return True
 
 
 

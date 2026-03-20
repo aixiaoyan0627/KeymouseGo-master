@@ -71,11 +71,11 @@ class OceanV3LiuxingCityRow(QFrame):
         self.cb_trade_script.currentTextChanged.connect(self._on_changed)
         layout.addWidget(self.cb_trade_script)
         
-        # 选项4：下一站策略（固定为"指定城市"，不可选）
+        # 选项4：下一站策略（无/指定城市）
         self.cb_next_strategy = QComboBox()
-        self.cb_next_strategy.addItems(['指定城市'])
+        self.cb_next_strategy.addItems(['无', '指定城市'])
         self.cb_next_strategy.setMaximumWidth(140)
-        self.cb_next_strategy.setEnabled(False)
+        self.cb_next_strategy.currentTextChanged.connect(self._on_changed)
         layout.addWidget(self.cb_next_strategy)
         
         layout.addStretch()
@@ -157,12 +157,14 @@ class OceanV3LiuxingCityRow(QFrame):
     
     def get_config(self) -> dict:
         """获取配置（返回拼音格式）"""
+        next_strategy_text = self.cb_next_strategy.currentText()
+        next_stop_strategy = 'none' if next_strategy_text == '无' else 'specified'
         return {
             'city_index': self.city_index,
             'sea': self._get_current_sea_pinyin(),
             'city': self._get_current_city_pinyin(),
             'script_trade': self.cb_trade_script.currentData(),
-            'next_stop_strategy': 'specified',
+            'next_stop_strategy': next_stop_strategy,
         }
     
     def set_config(self, cfg: dict):
@@ -170,6 +172,7 @@ class OceanV3LiuxingCityRow(QFrame):
         sea_pinyin = cfg.get('sea', '')
         city_pinyin = cfg.get('city', '')
         script_trade = cfg.get('script_trade', '')
+        next_stop_strategy = cfg.get('next_stop_strategy', 'specified')
         
         # 先保存当前城市选择，因为更新海域会清空城市列表
         
@@ -193,6 +196,10 @@ class OceanV3LiuxingCityRow(QFrame):
             idx = self.cb_trade_script.findData(script_trade)
             if idx >= 0:
                 self.cb_trade_script.setCurrentIndex(idx)
+        
+        # 设置下一站策略
+        next_strategy_index = 0 if next_stop_strategy == 'none' else 1
+        self.cb_next_strategy.setCurrentIndex(next_strategy_index)
 
 
 class OceanV3LiuxingPanel(QWidget):

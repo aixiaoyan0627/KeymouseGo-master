@@ -212,23 +212,26 @@ class ImageDetector:
         """截取屏幕"""
         try:
             if self.capture_region and self.window_title:
-                # 每隔一段时间重新获取窗口位置，避免窗口移动后坐标偏移
+                # 每隔更长时间重新获取窗口位置，避免频繁检查导致问题
                 current_time = time.time()
-                if current_time - self._last_window_check_time > 10.0:  # 每10秒最多检查一次窗口位置
+                if current_time - self._last_window_check_time > 60.0:  # 每60秒最多检查一次窗口位置
                     self._last_window_check_time = current_time
                     if self.window_title:
-                        new_capture_region = get_window_rect_by_title(self.window_title, expected_width=1024, expected_height=768)
-                        if new_capture_region:
-                            if self.capture_region != new_capture_region:
-                                logger.debug('窗口位置已更新: {} -> {}'.format(self.capture_region, new_capture_region))
-                                self.capture_region = new_capture_region
-                                # 窗口位置更新后，重新计算缩放后的区域
-                                window_width, window_height = new_capture_region[2], new_capture_region[3]
-                                self._calculate_scale_and_regions(
-                                    window_width, window_height,
-                                    self.region_a, self.region_a_list, self.region_a1, self.region_a2, self.region_a3, self.region_b, self.region_b_delay, self.region_c,
-                                    self.region_e, self.region_f
-                                )
+                        try:
+                            new_capture_region = get_window_rect_by_title(self.window_title, expected_width=1024, expected_height=768)
+                            if new_capture_region:
+                                if self.capture_region != new_capture_region:
+                                    logger.debug('窗口位置已更新: {} -> {}'.format(self.capture_region, new_capture_region))
+                                    self.capture_region = new_capture_region
+                                    # 窗口位置更新后，重新计算缩放后的区域
+                                    window_width, window_height = new_capture_region[2], new_capture_region[3]
+                                    self._calculate_scale_and_regions(
+                                        window_width, window_height,
+                                        self.region_a, self.region_a_list, self.region_a1, self.region_a2, self.region_a3, self.region_b, self.region_b_delay, self.region_c,
+                                        self.region_e, self.region_f
+                                    )
+                        except Exception as e:
+                            logger.debug('更新窗口位置失败，继续使用旧位置: {}', e)
                 return take_screenshot(region=self.capture_region)
             elif self.capture_region:
                 return take_screenshot(region=self.capture_region)
