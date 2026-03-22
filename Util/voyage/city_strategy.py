@@ -77,6 +77,32 @@ class CityStrategyExecutor:
             time.sleep(0.1)
         return True
 
+    def _execute_view_reset(self) -> bool:
+        """
+        执行画面复位操作
+        
+        :return: 是否执行成功
+        """
+        if self._stopped:
+            self.log('[C策略] 已停止，跳过执行画面复位操作')
+            return False
+        
+        self.log('[C策略] 执行画面复位操作')
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        fuwei_script_path = os.path.join(base_dir, 'system_scripts', 'fuwei.json5')
+        
+        if not os.path.isfile(fuwei_script_path):
+            self.log(f'[C策略] 画面复位脚本不存在: {fuwei_script_path}')
+            return False
+        
+        if self.script_executor:
+            self.log(f'[C策略] 执行画面复位脚本: {os.path.basename(fuwei_script_path)}')
+            self.script_executor.execute(fuwei_script_path, wait=True)
+            return True
+        
+        self.log('[C策略] 普通脚本执行器未初始化!')
+        return False
+    
     def _execute_enhanced_script(self, script_name: str, context: Optional[dict] = None) -> bool:
         """
         执行增强脚本
@@ -268,6 +294,31 @@ class CityStrategyExecutor:
             if self._stopped:
                 return
             
+            # 等待1秒，然后执行画面复位操作
+            if not self._sleep_with_check(1):
+                self.log('[C策略] 等待被中断')
+                return
+            
+            if self._stopped:
+                return
+            
+            # 执行画面复位操作
+            self.log('[C策略] 执行画面复位操作')
+            if not self._execute_view_reset():
+                self.log('[C策略] 画面复位操作被中断')
+                return
+            
+            if self._stopped:
+                return
+            
+            # 等待1.5秒，让画面复位生效
+            if not self._sleep_with_check(1.5):
+                self.log('[C策略] 等待被中断')
+                return
+            
+            if self._stopped:
+                return
+            
             # 添加3秒间隔（可中断）
             if not self._sleep_with_check(3):
                 self.log('[C策略] 等待被中断')
@@ -407,13 +458,45 @@ class CityStrategyExecutor:
             self.log('[C策略] 入港固定操作执行失败')
             return False
         
-        # 2. 执行买卖操作固定版
+        # 等待1秒，然后执行画面复位操作
+        if not self._sleep_with_check(1):
+            self.log('[C策略] 等待被中断')
+            return False
+        
+        # 2. 执行画面复位操作
+        self.log('[C策略] 执行画面复位操作')
+        if not self._execute_view_reset():
+            self.log('[C策略] 画面复位操作被中断')
+            return False
+        
+        # 等待1.5秒，让画面复位生效
+        if not self._sleep_with_check(1.5):
+            self.log('[C策略] 等待被中断')
+            return False
+        
+        # 3. 执行买卖操作固定版
         self.log('[C策略] 执行买卖操作固定版')
         if not self._execute_enhanced_script('买卖操作固定版'):
             self.log('[C策略] 买卖操作固定版执行失败')
             return False
         
-        # 3. 执行下一站选择-强制使用指定城市模式
+        # 等待1秒，然后执行画面复位操作
+        if not self._sleep_with_check(1):
+            self.log('[C策略] 等待被中断')
+            return False
+        
+        # 4. 执行画面复位操作
+        self.log('[C策略] 执行画面复位操作')
+        if not self._execute_view_reset():
+            self.log('[C策略] 画面复位操作被中断')
+            return False
+        
+        # 等待1.5秒，让画面复位生效
+        if not self._sleep_with_check(1.5):
+            self.log('[C策略] 等待被中断')
+            return False
+        
+        # 5. 执行下一站选择-强制使用指定城市模式
         self.log('[C策略] 执行下一站选择-指定城市（海域匹配但城市不匹配时，强制使用指定城市模式）')
         # 创建一个临时配置，强制 next_stop_strategy 为 'specified'
         temp_cfg = type(prev_city_cfg)(**prev_city_cfg.__dict__)
