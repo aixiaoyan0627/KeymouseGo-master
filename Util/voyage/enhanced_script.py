@@ -779,13 +779,26 @@ class EnhancedScriptExecutor:
         if scroll_params:
             self.log(f'[增强脚本] 滚动参数: {scroll_params}')
         
-        # 尝试查找（支持重试）
-        for attempt in range(retry_count + 1):
-            if attempt > 0:
-                self.log(f'[增强脚本] 第{attempt + 1}次尝试...')
-                if retry_scroll and scroll_params:
-                    self._mouse_scroll(scroll_params)
+        # 内部辅助函数：执行一次查找尝试
+        def try_find_and_click(do_scroll: bool = False) -> Optional[bool]:
+            """
+            执行一次查找尝试
+            
+            :param do_scroll: 是否先滚动再查找
+            :return: True=成功找到并点击，False=失败，None=超时需要重试
+            """
+            if do_scroll:
+                self.log('[增强脚本] 执行鼠标滚轮下滚脚本...')
+                # 使用录制好的鼠标滚轮下滚脚本
+                base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+                scroll_script_path = os.path.join(base_dir, 'system_scripts', '鼠标滚轮下滚.json5')
+                if os.path.isfile(scroll_script_path) and self.script_executor:
+                    self.log(f'[增强脚本] 执行滚轮脚本: {os.path.basename(scroll_script_path)}')
+                    self.script_executor.execute(scroll_script_path, wait=True)
+                    self.log('[增强脚本] 滚轮脚本执行完成')
                     time.sleep(0.5)
+                else:
+                    self.log(f'[增强脚本] 滚轮脚本不存在或脚本执行器未初始化: {scroll_script_path}')
             
             start_time = time.time()
             
@@ -827,9 +840,19 @@ class EnhancedScriptExecutor:
                 
                 time.sleep(interval)
             
-            # 本次尝试超时，如果还有重试次数则继续
-            if attempt < retry_count:
-                self.log(f'[增强脚本] 第{attempt + 1}次尝试超时，准备重试...')
+            return None  # 超时
+        
+        # 第一次尝试（不滚动）
+        result = try_find_and_click(do_scroll=False)
+        if result is not None:
+            return result
+        
+        self.log(f'[增强脚本] 第一次查找超时，执行滚动后再次查找...')
+        
+        # 第二次尝试（滚动后查找）
+        result = try_find_and_click(do_scroll=True)
+        if result is not None:
+            return result
         
         self.log(f'[增强脚本] 查找图像超时: {os.path.basename(_convert_pinyin_to_chinese(image_path))}')
         return False

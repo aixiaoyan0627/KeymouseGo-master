@@ -294,6 +294,21 @@ class OceanV3LiuxingPanel(QWidget):
         self.config_changed.emit()
     
     def _on_mode_changed(self):
+        """当模式切换时，自动设置默认的下一站策略"""
+        mode_text = self.rb_single_mode.currentText()
+        is_cycle_mode = mode_text == '流行搓搓'
+        
+        # 设置所有城市的默认下一站策略
+        for row in self.city_rows:
+            row.cb_next_strategy.blockSignals(True)
+            if is_cycle_mode:
+                # 流行搓搓模式：默认"指定城市"
+                row.cb_next_strategy.setCurrentIndex(1)
+            else:
+                # 流行单线模式：默认"无"
+                row.cb_next_strategy.setCurrentIndex(0)
+            row.cb_next_strategy.blockSignals(False)
+        
         self.config_changed.emit()
     
     def _on_duration_changed(self):

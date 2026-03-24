@@ -330,6 +330,37 @@ def load_config(config_path: str, base_dir: Optional[str] = None) -> Optional[De
             ocean_v3_config.cities.append(city_cfg)
         
         config.ocean_v3_config = ocean_v3_config
+    elif tab_type == 'ocean_v3_liuxing':
+        config.imgsc_root_path = get_path('imgsc_root', os.path.join(project_root, 'imgsC'))
+        
+        # 加载V3-liuxing配置（流行板块）
+        ocean_v3_liuxing_data = data.get('ocean_v3_liuxing', {})
+        ocean_v3_liuxing_config = OceanV3LiuxingConfig()
+        
+        # 加载模式和时长设置
+        ocean_v3_liuxing_config.mode = ocean_v3_liuxing_data.get('mode', 'single')
+        ocean_v3_liuxing_config.duration_minutes = int(ocean_v3_liuxing_data.get('duration_minutes', 0))
+        
+        # 加载城市配置
+        cities_data = ocean_v3_liuxing_data.get('cities', [])
+        for city_data in cities_data:
+            city_cfg = OceanCityV3LiuxingConfig()
+            city_cfg.city_index = int(city_data.get('city_index', 1))
+            # 自动将中文海域和城市转换为拼音
+            sea = city_data.get('sea', '')
+            city = city_data.get('city', '')
+            city_cfg.sea = sea_chinese_to_pinyin(sea)
+            city_cfg.city = city_chinese_to_pinyin(city)
+            
+            script_trade = city_data.get('script_trade', '')
+            if script_trade:
+                script_trade = _resolve_path(script_trade, base_dir)
+            city_cfg.script_trade = script_trade
+            
+            city_cfg.next_stop_strategy = city_data.get('next_stop_strategy', 'specified')
+            ocean_v3_liuxing_config.cities.append(city_cfg)
+        
+        config.ocean_v3_liuxing_config = ocean_v3_liuxing_config
     else:
         config.trigger_image_paths = get_path_list('trigger_image_paths')
         config.trigger_script_path = get_path('trigger_script_path')

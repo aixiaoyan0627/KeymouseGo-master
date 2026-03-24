@@ -494,11 +494,13 @@ class VoyageStateMachine:
         
         return False
     
-    def _wait_for_a_state_or_city_change(self, timeout: float = 30.0) -> Tuple[bool, Optional[str], Optional[str]]:
+    def _wait_for_a_state_or_city_change(self, timeout: float = 30.0, current_sea: Optional[str] = None, current_city: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         等待A状态标识出现或城市变更为配置中的另一个城市
         
         :param timeout: 超时时间（秒）
+        :param current_sea: 当前所在海域（用于判断是否真的变更了城市）
+        :param current_city: 当前所在城市（用于判断是否真的变更了城市）
         :return: (是否在超时前检测到A状态或城市变更, 检测到的城市名, 检测到的海域名)
         """
         start_time = time.time()
@@ -548,7 +550,17 @@ class VoyageStateMachine:
                 # 检查是否是配置中的城市
                 target_city_cfg = self._find_matching_city_config(sea_name, city_name)
                 if target_city_cfg:
-                    return True, city_name, sea_name
+                    # 只有当检测到的城市与当前城市不同时，才认为是变更
+                    if current_sea is not None and current_city is not None:
+                        if sea_name == current_sea and city_name == current_city:
+                            # 同一个城市，继续等待
+                            pass
+                        else:
+                            # 不同的城市，认为是变更
+                            return True, city_name, sea_name
+                    else:
+                        # 没有当前城市信息，直接认为是变更
+                        return True, city_name, sea_name
             
             elapsed = time.time() - start_time
             # 每3秒打印一次日志
@@ -764,7 +776,7 @@ class VoyageStateMachine:
                     
                     if is_liuxing_mode:
                         self.log('[状态机] 从C策略跳转，等待A状态标识出现或城市变更（最长30秒）...')
-                        wait_result, detected_city, detected_sea = self._wait_for_a_state_or_city_change(30)
+                        wait_result, detected_city, detected_sea = self._wait_for_a_state_or_city_change(30, sea_name, city_name)
                         if not self.ctx.running:
                             return False
                         if wait_result:

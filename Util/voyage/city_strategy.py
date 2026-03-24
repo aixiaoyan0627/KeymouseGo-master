@@ -1,6 +1,9 @@
 # -*- encoding:utf-8 -*-
 """
 城市策略执行器：负责C策略的城市/海域判定和策略段执行
+- 分为两个独立的类：
+  - CityStrategyExecutorSingle: 流行单线模式
+  - CityStrategyExecutorCycle: 流行搓搓模式
 """
 import os
 import time
@@ -9,15 +12,9 @@ from typing import Optional, Callable, Any, Tuple
 from loguru import logger
 
 
-class CityStrategyExecutor:
+class CityStrategyExecutorBase:
     """
-    城市策略执行器
-    
-    职责：
-    - 城市归属判定
-    - 海域归属判定
-    - 策略段执行
-    - 下一站选择
+    城市策略执行器基类
     """
     
     def __init__(
@@ -188,66 +185,30 @@ class CityStrategyExecutor:
         
         prev_idx = (current_idx - 1) % len(cities)
         return cities[prev_idx]
+
+
+class CityStrategyExecutorSingle(CityStrategyExecutorBase):
+    """
+    城市策略执行器 - 流行单线模式
+    
+    跳转规则：1→2→3→4→5→6→7→8→1→2→3...
+    
+    执行步骤：
+    1. 检测当前城市，匹配到城市N
+    2. 执行买卖操作（script_trade）
+    3. 等待15秒
+    4. 直接跳回状态检测
+    5. 循环执行
+    """
     
     def _get_next_city_config(self, current_cfg: Any) -> Optional[Any]:
-        """获取下一个城市配置"""
-        # 检查是否是流行搓搓模式
-        if self.config.ocean_v3_liuxing_config and self.config.ocean_v3_liuxing_config.mode == 'cycle':
-            # 流行搓搓模式：1→2→1→3→1→4...
-            cities = self.config.ocean_v3_liuxing_config.cities
-            if not cities:
-                self.log('[C策略] cities 列表为空')
-                return None
-            
-            self.log('[C策略] 流行搓搓模式，当前城市配置: sea={}, city={}, city_index={}'.format(
-                current_cfg.sea, current_cfg.city, current_cfg.city_index))
-            
-            # 找到当前城市索引
-            current_idx = -1
-            for i, city_cfg in enumerate(cities):
-                if city_cfg.city_index == current_cfg.city_index:
-                    current_idx = i
-                    break
-            
-            if current_idx < 0:
-                self.log('[C策略] 未找到当前城市在列表中的位置')
-                return None
-            
-            # 搓搓模式跳转规则
-            if current_idx == 0:
-                # 当前是城市1，跳到下一个城市
-                next_idx = current_idx + 1
-                while next_idx < len(cities):
-                    next_city = cities[next_idx]
-                    if next_city.sea and next_city.city:
-                        self.log('[C策略] 搓搓模式下一个城市配置(从1跳转): sea={}, city={}'.format(next_city.sea, next_city.city))
-                        return next_city
-                    next_idx += 1
-                # 如果没有更多城市，跳回城市1
-                self.log('[C策略] 搓搓模式没有更多城市，跳回城市1')
-                return cities[0]
-            else:
-                # 当前不是城市1，跳回城市1
-                next_city = cities[0]
-                self.log('[C策略] 搓搓模式下一个城市配置(跳回1): sea={}, city={}'.format(next_city.sea, next_city.city))
-                return next_city
-        
-        # 普通模式（流行单线或远洋）
-        cities = None
-        if self.config.ocean_v3_config:
-            cities = self.config.ocean_v3_config.cities
-        elif self.config.ocean_v3_liuxing_config:
-            cities = self.config.ocean_v3_liuxing_config.cities
-        
-        if not cities:
-            self.log('[C策略] ocean_v3_config或ocean_v3_liuxing_config 为空')
-            return None
-        
+        """获取下一个城市配置（单线模式）"""
+        cities = self.config.ocean_v3_liuxing_config.cities
         if not cities:
             self.log('[C策略] cities 列表为空')
             return None
         
-        self.log('[C策略] 当前城市配置: sea={}, city={}, city_index={}'.format(
+        self.log('[C策略] 流行单线模式，当前城市配置: sea={}, city={}, city_index={}'.format(
             current_cfg.sea, current_cfg.city, current_cfg.city_index))
         self.log('[C策略] 所有城市配置: {}'.format([
             {'sea': c.sea, 'city': c.city, 'city_index': c.city_index} 
@@ -275,57 +236,14 @@ class CityStrategyExecutor:
         self.log('[C策略] 未找到下一个有效城市配置')
         return None
     
-    def _execute_city_segment(self, city_cfg: Any):
-        """执行城市策略段"""
+    def _execute_city_segment(self, city_cfg: Any) -> bool:
+        """执行城市策略段（单线模式）
+        
+        :return: 是否应该继续执行下一站等待（单线模式永远返回False，直接跳回状态检测）
+        """
         if self._stopped:
             self.log('[C策略] 已停止，跳过执行城市策略段')
-            return
-        
-        # 检查是否是流行板块（流行板块不执行到港固定操作）
-        is_liuxing_mode = self.config.ocean_v3_liuxing_config is not None
-        
-        if not is_liuxing_mode:
-            self.log('[C策略] 执行到港固定操作')
-            # 增强脚本：使用 enhanced_script_executor 执行（同步）
-            if not self._execute_enhanced_script('到港固定操作'):
-                self.log('[C策略] 到港固定操作被中断')
-                return
-            
-            if self._stopped:
-                return
-            
-            # 等待1秒，然后执行画面复位操作
-            if not self._sleep_with_check(1):
-                self.log('[C策略] 等待被中断')
-                return
-            
-            if self._stopped:
-                return
-            
-            # 执行画面复位操作
-            self.log('[C策略] 执行画面复位操作')
-            if not self._execute_view_reset():
-                self.log('[C策略] 画面复位操作被中断')
-                return
-            
-            if self._stopped:
-                return
-            
-            # 等待1.5秒，让画面复位生效
-            if not self._sleep_with_check(1.5):
-                self.log('[C策略] 等待被中断')
-                return
-            
-            if self._stopped:
-                return
-            
-            # 添加3秒间隔（可中断）
-            if not self._sleep_with_check(3):
-                self.log('[C策略] 等待被中断')
-                return
-            
-            if self._stopped:
-                return
+            return False
         
         self.log('[C策略] 执行指定买卖操作')
         if city_cfg.script_trade and os.path.isfile(city_cfg.script_trade):
@@ -334,43 +252,138 @@ class CityStrategyExecutor:
                 self.script_executor.execute(city_cfg.script_trade, wait=True)
         
         if self._stopped:
-            return
+            return False
         
-        # 检查下一站策略
-        next_stop_strategy = getattr(city_cfg, 'next_stop_strategy', 'specified')
+        # 流行单线模式：等待15秒后跳回状态检测
+        self.log('[C策略] 流行单线模式：买卖操作完成，等待15秒后跳回状态检测')
+        if not self._sleep_with_check(15):
+            self.log('[C策略] 等待被中断')
+            return False
+        self.log('[C策略] 等待完成，跳回状态检测阶段')
+        return False
+    
+    def handle_strategy_c_start(self, sea_name: str, city_name: str) -> Tuple[bool, Optional[str]]:
+        """
+        处理C策略开始（城市匹配的情况）
         
-        if next_stop_strategy == 'none':
-            # 无状态：等待15秒，直接跳回状态检测
-            self.log('[C策略] 下一站策略为\"无\"，等待15秒后跳回状态检测')
-            if not self._sleep_with_check(15):
-                self.log('[C策略] 等待被中断')
-                return
-            self.log('[C策略] 等待完成，跳回状态检测阶段')
-            return
+        :param sea_name: 海域名称
+        :param city_name: 城市名称
+        :return: (是否继续运行, 下一个目标海域)
+        """
+        self.log('[C策略] 当前处于「{}」海域「{}」'.format(sea_name, city_name))
+        
+        target_city_cfg = self._find_matching_city_config(sea_name, city_name)
+        
+        if target_city_cfg:
+            self.log('[C策略] 检测到城市属于配置中的城市「{}」'.format(target_city_cfg.city))
+            should_continue = self._execute_city_segment(target_city_cfg)
+            return (should_continue, None)
         else:
-            # 指定城市状态：继续执行原来的流程
-            # 非流行板块（远洋V3）：先执行到港固定操作，再等待3秒
-            # 流行板块：直接等待3秒（不执行到港固定操作）
-            if not is_liuxing_mode:
-                # 远洋V3：添加3秒间隔（可中断）
-                if not self._sleep_with_check(3):
-                    self.log('[C策略] 等待被中断')
-                    return
-                
-                if self._stopped:
-                    return
-                
-                self.log('[C策略] 执行下一站选择')
-                # 增强脚本：使用 enhanced_script_executor 执行（同步）
-                self._execute_next_stop_script(city_cfg)
-            else:
-                # 流行板块：等待15秒后跳回状态检测
-                self.log('[C策略] 流行板块：买卖操作完成，等待15秒后跳回状态检测')
-                if not self._sleep_with_check(15):
-                    self.log('[C策略] 等待被中断')
-                    return
-                self.log('[C策略] 等待完成，跳回状态检测阶段')
-                return
+            self.log('[C策略] 城市不属于配置中的任一城市')
+            return (False, None)
+    
+    def handle_strategy_c_sea_matched(self, sea_name: str, sea_matched_cfg: Any) -> bool:
+        """
+        处理C策略海域匹配的情况（城市不匹配但海域匹配）
+        
+        :param sea_name: 海域名称
+        :param sea_matched_cfg: 匹配的海域配置
+        :return: 是否执行成功
+        """
+        self.log('[C策略] 海域「{}」匹配配置'.format(sea_name))
+        
+        # 流行单线模式：城市不匹配但海域匹配，直接停止运行
+        self.log('[C策略] 流行单线模式：城市不匹配但海域匹配，停止航行')
+        self._stopped = True
+        return False
+
+
+class CityStrategyExecutorCycle(CityStrategyExecutorBase):
+    """
+    城市策略执行器 - 流行搓搓模式
+    
+    跳转规则：1→2→1→3→1→4→1→5→1→6→1→7→1→8→1→2...
+    
+    执行步骤：
+    1. 检测当前城市，匹配到城市N
+    2. 执行买卖操作（script_trade）
+    3. 等待3秒
+    4. 执行下一站选择-指定城市
+    5. 等待30秒（等待进入A状态或城市变更）
+    6. 循环执行
+    """
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 记录上一个从城市1跳转到的目标城市索引
+        self._last_target_city_index = 1
+    
+    def _get_next_city_config(self, current_cfg: Any) -> Optional[Any]:
+        """获取下一个城市配置（搓搓模式）"""
+        cities = self.config.ocean_v3_liuxing_config.cities
+        if not cities:
+            self.log('[C策略] cities 列表为空')
+            return None
+        
+        self.log('[C策略] 流行搓搓模式，当前城市配置: sea={}, city={}, city_index={}'.format(
+            current_cfg.sea, current_cfg.city, current_cfg.city_index))
+        
+        # 找到当前城市索引
+        current_idx = -1
+        for i, city_cfg in enumerate(cities):
+            if city_cfg.city_index == current_cfg.city_index:
+                current_idx = i
+                break
+        
+        if current_idx < 0:
+            self.log('[C策略] 未找到当前城市在列表中的位置')
+            return None
+        
+        # 找到城市1
+        city1 = None
+        city1_idx = -1
+        for i, cfg in enumerate(cities):
+            if cfg.city_index == 1:
+                city1 = cfg
+                city1_idx = i
+                break
+        
+        if city1 is None:
+            self.log('[C策略] 未找到城市1配置')
+            return None
+        
+        # 搓搓模式跳转规则
+        if current_cfg.city_index == 1:
+            # 当前是城市1，跳到下一个目标城市
+            # 找到有效城市列表（只包含有配置的城市）
+            valid_cities = [cfg for cfg in cities if cfg.sea and cfg.city]
+            if not valid_cities:
+                return None
+            
+            # 找到当前城市1在有效列表中的位置
+            valid_city1_idx = -1
+            for i, cfg in enumerate(valid_cities):
+                if cfg.city_index == 1:
+                    valid_city1_idx = i
+                    break
+            
+            if valid_city1_idx < 0:
+                return None
+            
+            # 找到下一个目标城市
+            next_valid_idx = (valid_city1_idx + 1) % len(valid_cities)
+            # 如果下一个还是城市1，继续往后找
+            while valid_cities[next_valid_idx].city_index == 1:
+                next_valid_idx = (next_valid_idx + 1) % len(valid_cities)
+            
+            next_city = valid_cities[next_valid_idx]
+            self._last_target_city_index = next_city.city_index
+            self.log('[C策略] 搓搓模式下一个城市配置(从1跳转): sea={}, city={}'.format(next_city.sea, next_city.city))
+            return next_city
+        else:
+            # 当前不是城市1，跳回到城市1
+            self.log('[C策略] 搓搓模式下一个城市配置(跳回1): sea={}, city={}'.format(city1.sea, city1.city))
+            return city1
     
     def _execute_next_stop_script(self, city_cfg: Any):
         """执行下一站选择脚本"""
@@ -381,16 +394,54 @@ class CityStrategyExecutor:
         
         if next_city_cfg:
             context = {
-                'next_stop_strategy': city_cfg.next_stop_strategy,
+                'next_stop_strategy': 'specified',
                 'next_sea': next_city_cfg.sea,
                 'next_city': next_city_cfg.city,
             }
             
-            self.log('[C策略] 下一站策略：{}，目标海域: {}，目标城市: {}'.format(
-                city_cfg.next_stop_strategy, next_city_cfg.sea, next_city_cfg.city))
+            self.log('[C策略] 下一站策略：指定城市，目标海域: {}，目标城市: {}'.format(
+                next_city_cfg.sea, next_city_cfg.city))
             self._execute_enhanced_script('下一站选择', context=context)
         else:
             self.log('[C策略] 未找到下一个城市配置')
+    
+    def _execute_city_segment(self, city_cfg: Any) -> bool:
+        """执行城市策略段（搓搓模式）
+        
+        :return: 是否应该继续执行下一站等待（搓搓模式返回True，继续执行）
+        """
+        if self._stopped:
+            self.log('[C策略] 已停止，跳过执行城市策略段')
+            return False
+        
+        self.log('[C策略] 执行指定买卖操作')
+        if city_cfg.script_trade and os.path.isfile(city_cfg.script_trade):
+            if self.script_executor:
+                self.log(f'[C策略] 执行买卖脚本: {os.path.basename(city_cfg.script_trade)}')
+                self.script_executor.execute(city_cfg.script_trade, wait=True)
+        
+        if self._stopped:
+            return False
+        
+        # 添加3秒等待时间，避免脚本衔接太快导致下一站选择失败
+        self.log('[C策略] 等待3秒，准备执行下一站选择...')
+        if not self._sleep_with_check(3):
+            self.log('[C策略] 等待被中断')
+            return False
+        
+        if self._stopped:
+            return False
+        
+        # 流行搓搓模式：执行下一站选择-指定城市
+        self.log('[C策略] 流行搓搓模式：执行下一站选择-指定城市')
+        self.log('[C策略] 执行下一站选择')
+        # 增强脚本：使用 enhanced_script_executor 执行（同步）
+        self._execute_next_stop_script(city_cfg)
+        
+        if self._stopped:
+            return False
+        
+        return True
     
     def handle_strategy_c_start(self, sea_name: str, city_name: str) -> Tuple[bool, Optional[str]]:
         """
@@ -407,15 +458,19 @@ class CityStrategyExecutor:
         
         if target_city_cfg:
             self.log('[C策略] 检测到城市属于配置中的城市「{}」'.format(target_city_cfg.city))
-            self._execute_city_segment(target_city_cfg)
+            should_continue = self._execute_city_segment(target_city_cfg)
             
-            # 获取下一个目标城市的海域
-            next_city_cfg = self._get_next_city_config(target_city_cfg)
-            if next_city_cfg:
-                next_target_sea = next_city_cfg.sea
-                self.log('[C策略] 下一个目标海域: 「{}」'.format(next_target_sea))
-            
-            return (True, next_target_sea)
+            if should_continue:
+                # 获取下一个目标城市的海域
+                next_city_cfg = self._get_next_city_config(target_city_cfg)
+                if next_city_cfg:
+                    next_target_sea = next_city_cfg.sea
+                    self.log('[C策略] 下一个目标海域: 「{}」'.format(next_target_sea))
+                
+                return (True, next_target_sea)
+            else:
+                # 直接跳回状态检测
+                return (False, None)
         else:
             self.log('[C策略] 城市不属于配置中的任一城市')
             return (False, None)
@@ -424,83 +479,66 @@ class CityStrategyExecutor:
         """
         处理C策略海域匹配的情况（城市不匹配但海域匹配）
         
-        V3-liuxing模式：直接停止运行
-        远洋V3模式：执行固定操作流程：入港固定操作 → 买卖操作固定版 → 下一站选择-指定城市
-        
         :param sea_name: 海域名称
         :param sea_matched_cfg: 匹配的海域配置
         :return: 是否执行成功
         """
         self.log('[C策略] 海域「{}」匹配配置'.format(sea_name))
         
-        # 检查是否是流行板块（V3-liuxing模式下直接停止）
-        is_liuxing_mode = self.config.ocean_v3_liuxing_config is not None
+        # 流行搓搓模式：城市不匹配但海域匹配，直接停止运行
+        self.log('[C策略] 流行搓搓模式：城市不匹配但海域匹配，停止航行')
+        self._stopped = True
+        return False
+
+
+class CityStrategyExecutor:
+    """
+    城市策略执行器（兼容层 - 根据模式选择使用Single或Cycle）
+    """
+    
+    def __init__(
+        self,
+        config,
+        log_callback: Optional[Callable[[str], None]] = None,
+        enhanced_script_executor=None,
+        script_executor=None,
+        script_callback: Optional[Callable[[str], None]] = None,
+    ):
+        self.config = config
+        self.log = log_callback or print
         
-        if is_liuxing_mode:
-            # V3-liuxing模式：城市不匹配但海域匹配，直接停止运行
-            self.log('[C策略] V3-liuxing模式：城市不匹配但海域匹配，停止航行')
-            self._stopped = True
-            return False
-        
-        # 远洋V3模式：继续执行原来的流程
-        # 获取上一个策略段配置
-        prev_city_cfg = self._get_previous_city_config(sea_matched_cfg)
-        
-        if not prev_city_cfg:
-            self.log('[C策略] 未找到上一个策略段配置')
-            return False
-        
-        self.log('[C策略] 使用上一个策略段配置: sea={}, city={}'.format(prev_city_cfg.sea, prev_city_cfg.city))
-        
-        # 1. 执行入港固定操作
-        self.log('[C策略] 执行入港固定操作')
-        if not self._execute_enhanced_script('到港固定操作'):
-            self.log('[C策略] 入港固定操作执行失败')
-            return False
-        
-        # 等待1秒，然后执行画面复位操作
-        if not self._sleep_with_check(1):
-            self.log('[C策略] 等待被中断')
-            return False
-        
-        # 2. 执行画面复位操作
-        self.log('[C策略] 执行画面复位操作')
-        if not self._execute_view_reset():
-            self.log('[C策略] 画面复位操作被中断')
-            return False
-        
-        # 等待1.5秒，让画面复位生效
-        if not self._sleep_with_check(1.5):
-            self.log('[C策略] 等待被中断')
-            return False
-        
-        # 3. 执行买卖操作固定版
-        self.log('[C策略] 执行买卖操作固定版')
-        if not self._execute_enhanced_script('买卖操作固定版'):
-            self.log('[C策略] 买卖操作固定版执行失败')
-            return False
-        
-        # 等待1秒，然后执行画面复位操作
-        if not self._sleep_with_check(1):
-            self.log('[C策略] 等待被中断')
-            return False
-        
-        # 4. 执行画面复位操作
-        self.log('[C策略] 执行画面复位操作')
-        if not self._execute_view_reset():
-            self.log('[C策略] 画面复位操作被中断')
-            return False
-        
-        # 等待1.5秒，让画面复位生效
-        if not self._sleep_with_check(1.5):
-            self.log('[C策略] 等待被中断')
-            return False
-        
-        # 5. 执行下一站选择-强制使用指定城市模式
-        self.log('[C策略] 执行下一站选择-指定城市（海域匹配但城市不匹配时，强制使用指定城市模式）')
-        # 创建一个临时配置，强制 next_stop_strategy 为 'specified'
-        temp_cfg = type(prev_city_cfg)(**prev_city_cfg.__dict__)
-        temp_cfg.next_stop_strategy = 'specified'
-        self._execute_next_stop_script(temp_cfg)
-        
-        return True
+        # 根据模式选择使用哪个策略执行器
+        is_liuxing_mode = config.ocean_v3_liuxing_config is not None
+        if is_liuxing_mode and config.ocean_v3_liuxing_config.mode == 'cycle':
+            # 流行搓搓模式
+            self._executor = CityStrategyExecutorCycle(
+                config, log_callback, enhanced_script_executor, 
+                script_executor, script_callback
+            )
+            self.log('[C策略] 使用流行搓搓模式执行器')
+        elif is_liuxing_mode and config.ocean_v3_liuxing_config.mode == 'single':
+            # 流行单线模式
+            self._executor = CityStrategyExecutorSingle(
+                config, log_callback, enhanced_script_executor, 
+                script_executor, script_callback
+            )
+            self.log('[C策略] 使用流行单线模式执行器')
+        else:
+            # 远洋V3模式，暂时保持原样（用Cycle类处理，但只执行单线逻辑）
+            self._executor = CityStrategyExecutorSingle(
+                config, log_callback, enhanced_script_executor, 
+                script_executor, script_callback
+            )
+            self.log('[C策略] 使用远洋V3模式执行器')
+    
+    def stop(self):
+        """停止城市策略执行器"""
+        self._executor.stop()
+    
+    def handle_strategy_c_start(self, sea_name: str, city_name: str) -> Tuple[bool, Optional[str]]:
+        """处理C策略开始（城市匹配的情况）"""
+        return self._executor.handle_strategy_c_start(sea_name, city_name)
+    
+    def handle_strategy_c_sea_matched(self, sea_name: str, sea_matched_cfg: Any) -> bool:
+        """处理C策略海域匹配的情况（城市不匹配但海域匹配）"""
+        return self._executor.handle_strategy_c_sea_matched(sea_name, sea_matched_cfg)
